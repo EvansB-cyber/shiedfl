@@ -1,0 +1,26 @@
+services:
+  fl-backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-super-secret-key-3-tier-fl}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
+      MLFLOW_TRACKING_URI: file:/app/mlruns
+      ESCROW_USE_LLM: ${ESCROW_USE_LLM:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./edge_layer/databases:/app/edge_layer/databases
+      - ./models_checkpoint:/app/models_checkpoint
+      - ./mlruns:/app/mlruns
+      - ./users.db:/app/users.db
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    ports:
+      - "5000:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns
+    volumes:
+      - ./mlruns:/mlruns
+    restart: unless-stopped

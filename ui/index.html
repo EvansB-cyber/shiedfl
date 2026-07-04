@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghanaian Mobile Fraud Escrow Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ✅ Hamburger button: placed here, OUTSIDE app-container, BEFORE sidebar -->
+    <div class="hamburger-btn" id="hamburgerBtn" title="Open navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+
+    <div class="app-container">
+
+        <!-- ✅ id="sidebar" added so JavaScript can find it -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-halved logo-icon"></i>
+                    <span>ShieldFL</span>
+                </div>
+                <div class="badge">Ghana MTN/Telecel/AirtelTigo</div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" onclick="switchTab('transfer-tab')">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Transfer Portal</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('escrow-tab')">
+                    <i class="fa-solid fa-vault"></i>
+                    <span>Escrow Center</span>
+                    <span class="escrow-count-badge" id="escrow-badge" style="display: none;">0</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('federated-tab')">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <span>Federated Learning</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('settings-tab')">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <span>Profile & Settings</span>
+                </button>
+                <a href="contacts.html" class="nav-item external-link">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span>Manage Contacts</span>
+                </a>
+                <div style="flex-grow: 1;"></div>
+                <button class="nav-item text-danger" onclick="logout()" style="color: #ff6b6b; margin-top: auto; border-top: 1px solid rgba(255,107,107,0.2);">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
+                </button>
+            </nav>
+
+            <!-- Live Traffic Simulation Toggle -->
+            <div class="sidebar-sim-control" style="margin-bottom: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <span class="sim-title" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-signal text-emerald"></i> Live Simulation
+                </span>
+                <label class="toggle-container" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                    <span class="toggle-label" id="traffic-status-label" style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">Disabled</span>
+                    <input type="checkbox" id="traffic-toggle" onchange="toggleTrafficSimulation()" style="display:none;">
+                    <span class="toggle-slider" style="width: 44px; height: 24px; background-color: var(--border-color); border-radius: 9999px; position: relative; transition: background-color 0.2s;"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="dot pulse-green"></span>
+                    <span>Backend Connected</span>
+                </div>
+                <div class="workspace-info">
+                    <p>Workspace: Scratch/Project</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content" id="mainContent">
+            <!-- HEADER -->
+            <header class="content-header">
+                <div class="header-title centered-header-title">
+                    <h1 id="page-title">Transfer Portal</h1>
+                    <p id="page-subtitle">Simulate Ghanaian mobile-money transfers with MTN, Telecel, and AirtelTigo edge nodes</p>
+                </div>
+                <div class="header-actions">
+                    <div class="live-clock" id="live-clock" aria-live="polite">--:--</div>
+                    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark mode" title="Toggle light and dark mode">
+                        <i class="fa-solid fa-moon" id="theme-icon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <section class="notification-strip" aria-label="Live security alerts">
+                <div class="notification-track">
+                    <span class="notification-pill"><i class="fa-solid fa-bolt"></i> Live scanner: MTN, Telecel, and AirtelTigo fraud cues are being monitored in real time.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-coins"></i> GH₵ transfers above the threshold are automatically flagged for escrow review.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-shield-halved"></i> Ghanaian mobile-money phishing patterns are highlighted for safer decision-making.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-signal"></i> Live simulation traffic updates the dashboard every few seconds.</span>
+                    <!-- Duplicated pills so marquee loops seamlessly -->
+                    <span class="notification-pill"><i class="fa-solid fa-bolt"></i> Live scanner: MTN, Telecel, and AirtelTigo fraud cues are being monitored in real time.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-coins"></i> GH₵ transfers above the threshold are automatically flagged for escrow review.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-shield-halved"></i> Ghanaian mobile-money phishing patterns are highlighted for safer decision-making.</span>
+                    <span class="notification-pill"><i class="fa-solid fa-signal"></i> Live simulation traffic updates the dashboard every few seconds.</span>
+                </div>
+            </section>
+
+            <!-- TAB 1: TRANSFER PORTAL -->
+            <section id="transfer-tab" class="tab-content active">
+                <div class="transfer-stage">
+                    <div class="glass-card form-card centered-card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-paper-plane text-purple"></i>
+                            <h2>Ghanaian Mobile Money Simulation</h2>
+                        </div>
+                        <form id="transfer-form" onsubmit="handleTransfer(event)">
+                            <div class="form-group">
+                                <label for="sender-id">Select Sender Device (Edge Node)</label>
+                                <select id="sender-id" required onchange="onSenderChange()">
+                                    <option value="" disabled selected>Select sender device...</option>
+                                    <option value="S1-0">S1-0 (MTN - High Risk Node)</option>
+                                    <option value="S1-1">S1-1 (MTN - Med Risk Node)</option>
+                                    <option value="S1-2">S1-2 (MTN - Low Risk Node)</option>
+                                    <option value="S2-0">S2-0 (Telecel - High Risk Node)</option>
+                                    <option value="S2-1">S2-1 (Telecel - Med Risk Node)</option>
+                                    <option value="S2-2">S2-2 (Telecel - Low Risk Node)</option>
+                                    <option value="S3-0">S3-0 (AirtelTigo - High Risk Node)</option>
+                                    <option value="S3-1">S3-1 (AirtelTigo - Med Risk Node)</option>
+                                    <option value="S3-2">S3-2 (AirtelTigo - Low Risk Node)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="receiver-phone">Receiver Phone Number</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-phone"></i>
+                                    <input type="text" id="receiver-phone" placeholder="e.g. +233541234567 or +233200000000" required>
+                                </div>
+                                <span class="help-text">Try +233200000000 (flagged) or a new Ghanaian number</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="amount">Transfer Amount (GH₵)</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-coins"></i>
+                                    <input type="number" id="amount" placeholder="e.g. 100" min="1" step="any" required>
+                                </div>
+                                <span class="help-text">High amounts increase the heuristic risk score</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="message-text">SMS Message Context</label>
+                                <textarea id="message-text" rows="3" placeholder="Verify your account immediately to access funds!" required></textarea>
+                                <span class="help-text">SMS Phishing CNN evaluates Ghanaian mobile-money scam text, including MTN, Telecel, and AirtelTigo fraud cues.</span>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-bolt"></i> Run Assessment & Send
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="glass-card assessment-panel">
+                    <div class="card-header">
+                        <i class="fa-solid fa-chart-line text-emerald"></i>
+                        <h2>Risk Assessment Result</h2>
+                    </div>
+                    <div class="result-placeholder" id="result-placeholder">
+                        <i class="fa-solid fa-magnifying-glass-chart placeholder-icon"></i>
+                        <p>Fill out the transfer form and click "Run Assessment" to inspect the Ghanaian mobile-money security response.</p>
+                    </div>
+                    <div class="result-display" id="result-display" style="display: none;">
+                        <div class="verdict-banner" id="verdict-banner">
+                            <div class="verdict-icon" id="verdict-icon"></div>
+                            <div>
+                                <h3 id="verdict-title">APPROVED</h3>
+                                <p id="verdict-desc">Passed security parameters</p>
+                            </div>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric-box">
+                                <span class="metric-label">Total Risk Score</span>
+                                <span class="metric-value" id="risk-total">0.00</span>
+                                <div class="progress-bar-bg"><div class="progress-bar-fill bg-gradient" id="progress-total"></div></div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">SMS Phishing Risk (CNN)</span>
+                                <span class="metric-value" id="risk-sms">0.00</span>
+                                <div class="progress-bar-bg"><div class="progress-bar-fill bg-blue" id="progress-sms"></div></div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Contact Database Risk</span>
+                                <span class="metric-value" id="risk-contact">0.00</span>
+                                <div class="progress-bar-bg"><div class="progress-bar-fill bg-amber" id="progress-contact"></div></div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Heuristic Amount Risk</span>
+                                <span class="metric-value" id="risk-amount">0.00</span>
+                                <div class="progress-bar-bg"><div class="progress-bar-fill bg-purple" id="progress-amount"></div></div>
+                            </div>
+                        </div>
+                        <div class="decision-reason">
+                            <strong>Provider Decision:</strong>
+                            <p id="decision-text"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historical Log -->
+                <div class="glass-card logs-card">
+                    <div class="card-header">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-list-ul text-blue"></i>
+                            <h2 style="margin: 0;">Simulation Transaction Logs</h2>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="exportReport()" style="padding: 6px 12px; font-size: 13px;">
+                            <i class="fa-solid fa-download"></i> Export Audit Report
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="transfers-table">
+                            <thead>
+                                <tr>
+                                    <th>TX ID</th><th>Timestamp</th><th>Sender</th>
+                                    <th>Receiver</th><th>Amount</th><th>SMS Risk</th>
+                                    <th>Total Risk</th><th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transfers-tbody">
+                                <tr><td colspan="8" class="text-center text-muted">No simulated transfers yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: ESCROW CENTER -->
+            <section id="escrow-tab" class="tab-content">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-vault text-amber"></i>
+                        <h2>Provider Escrow Interception Queue</h2>
+                    </div>
+                    <p class="description">Intermediate nodes (Providers) escrow transfers with aggregate risk scores &ge; 0.65. Central authorities can manually inspect, release, or block held funds.</p>
+                    <div class="table-container">
+                        <table id="escrow-table">
+                            <thead>
+                                <tr>
+                                    <th>TX ID</th><th>Decision Node</th><th>Sender</th>
+                                    <th>Receiver</th><th>Amount</th><th>Reason For Escrow</th>
+                                    <th>Risk Score</th><th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="escrow-tbody">
+                                <tr><td colspan="8" class="text-center text-muted">No transactions currently held in escrow.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: FEDERATED LEARNING -->
+            <section id="federated-tab" class="tab-content">
+                <div class="grid-layout">
+                    <div class="glass-card fl-config-card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-gears text-purple"></i>
+                            <h2>FL Control Center</h2>
+                        </div>
+                        <p class="description">Run Ghanaian mobile-money federated updates. MTN, Telecel, and AirtelTigo edge devices train private parameters locally without sharing their contact and message databases.</p>
+                        <div class="fl-actions">
+                            <button class="btn btn-emerald" onclick="runFLRound()">
+                                <i class="fa-solid fa-play"></i> Trigger FL Training Round
+                            </button>
+                        </div>
+                        <div class="form-group" style="margin: 16px 0;">
+                            <label style="display:block;font-size:14px;font-weight:600;margin-bottom:8px;">FL Algorithm (Non-IID)</label>
+                            <select id="fl-algorithm" onchange="updateFLConfig()" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
+                                <option value="fedprox">FedProx (recommended for Non-IID)</option>
+                                <option value="fedopt">FedOpt (server-side Adam)</option>
+                                <option value="fedavg">FedAvg (baseline)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:16px;">
+                            <label class="toggle-container" style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                                <input type="checkbox" id="secure-agg-toggle" onchange="updateFLConfig()" checked style="display:none;">
+                                <span class="toggle-slider" style="width:44px;height:24px;background-color:var(--border-color);border-radius:9999px;position:relative;"></span>
+                                <span style="font-size:14px;font-weight:600;">Secure Aggregation (masked weights)</span>
+                            </label>
+                        </div>
+                        <div class="fl-status-box">
+                            <div class="status-row"><span>Global Model Status:</span><span class="badge badge-success" id="fl-status">Active</span></div>
+                            <div class="status-row"><span>Completed Rounds:</span><strong id="completed-rounds">0</strong></div>
+                            <div class="status-row"><span>Master SMS Accuracy:</span><strong id="sms-accuracy">0.00%</strong></div>
+                            <div class="status-row"><span>Master Call Accuracy:</span><strong id="call-accuracy">0.00%</strong></div>
+                            <div class="status-row"><span>Holdout SMS Accuracy:</span><strong id="holdout-sms-accuracy">0.00%</strong></div>
+                            <div class="status-row"><span>Holdout Size:</span><strong id="holdout-size">0</strong></div>
+                        </div>
+                        <div class="node-architecture">
+                            <h3>3-Tier Topography Status</h3>
+                            <div class="node-tree">
+                                <div class="tree-node root-node"><i class="fa-solid fa-server"></i><span>Global Server (Tier 1)</span></div>
+                                <div class="node-branches">
+                                    <div class="provider-branch">
+                                        <div class="tree-node provider-node"><i class="fa-solid fa-network-wired"></i><span>S1 Provider (Tier 2)</span></div>
+                                        <div class="client-nodes">
+                                            <span class="client-dot" title="S1-0">S1-0</span>
+                                            <span class="client-dot" title="S1-1">S1-1</span>
+                                            <span class="client-dot" title="S1-2">S1-2</span>
+                                        </div>
+                                    </div>
+                                    <div class="provider-branch">
+                                        <div class="tree-node provider-node"><i class="fa-solid fa-network-wired"></i><span>S2 Provider</span></div>
+                                        <div class="client-nodes">
+                                            <span class="client-dot" title="S2-0">S2-0</span>
+                                            <span class="client-dot" title="S2-1">S2-1</span>
+                                            <span class="client-dot" title="S2-2">S2-2</span>
+                                        </div>
+                                    </div>
+                                    <div class="provider-branch">
+                                        <div class="tree-node provider-node"><i class="fa-solid fa-network-wired"></i><span>S3 Provider</span></div>
+                                        <div class="client-nodes">
+                                            <span class="client-dot" title="S3-0">S3-0</span>
+                                            <span class="client-dot" title="S3-1">S3-1</span>
+                                            <span class="client-dot" title="S3-2">S3-2</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 30px;">
+                        <div class="glass-card dp-card">
+                            <div class="card-header">
+                                <i class="fa-solid fa-user-secret text-purple"></i>
+                                <h2>Federated Differential Privacy</h2>
+                            </div>
+                            <p class="description">Enable Ghanaian mobile-money privacy protection by clipping and perturbing edge-client updates before they reach the provider and global model layers.</p>
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label class="toggle-container" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                    <input type="checkbox" id="dp-toggle" onchange="updateDPConfig()" style="display:none;">
+                                    <span class="toggle-slider" style="width: 44px; height: 24px; background-color: var(--border-color); border-radius: 9999px; position: relative; transition: background-color 0.2s;"></span>
+                                    <span class="toggle-label" style="font-size: 14px; font-weight: 600;">Enable DP-SGD (Client Noise)</span>
+                                </label>
+                            </div>
+                            <div class="form-group" id="dp-noise-group" style="display: none; margin-bottom: 20px;">
+                                <label for="dp-noise" style="display: block; font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Noise Multiplier (&sigma;)</label>
+                                <div class="slider-wrapper" style="display: flex; align-items: center; gap: 16px;">
+                                    <input type="range" id="dp-noise" min="0.05" max="0.5" step="0.05" value="0.10" oninput="onDPNoiseSliderInput()" style="flex-grow: 1; padding: 0; height: 6px; background: var(--border-color); border-radius: 9999px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;">
+                                    <span class="slider-val" id="dp-noise-val" style="font-weight: 700; font-size: 14px; width: 40px; text-align: right;">0.10</span>
+                                </div>
+                                <span class="help-text" style="display: block; font-size: 11px; color: var(--text-muted); margin-top: 6px;">Higher values clip parameters more and inject larger noise.</span>
+                            </div>
+                            <div class="dp-privacy-budget" style="background-color: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); padding: 12px; border-radius: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Local Privacy Budget (Estimation):</span>
+                                <strong class="text-emerald" id="dp-budget-val">&epsilon; = &infin; (No DP)</strong>
+                            </div>
+                        </div>
+
+                        <div class="glass-card chart-card" style="flex-grow: 1;">
+                            <div class="card-header">
+                                <i class="fa-solid fa-chart-line text-blue"></i>
+                                <h2>Master Accuracy Progress</h2>
+                            </div>
+                            <div class="chart-container" style="position: relative; height:260px; width:100%">
+                                <canvas id="accuracyChart"></canvas>
+                            </div>
+                            <p class="chart-caption text-muted" style="margin-top: 10px; font-size: 11px;">A higher training round index reflects collaborative convergence as edge nodes share weights rather than raw user databases.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: SETTINGS -->
+            <section id="settings-tab" class="tab-content">
+                <div class="glass-card form-card centered-card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-sliders text-blue"></i>
+                        <h2>System Configuration</h2>
+                    </div>
+                    <p class="description">Adjust global fraud detection thresholds.</p>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="risk-threshold" style="display: block; font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Risk Escrow Threshold</label>
+                        <div class="slider-wrapper" style="display: flex; align-items: center; gap: 16px;">
+                            <input type="range" id="risk-threshold" min="0.10" max="0.95" step="0.05" value="0.65" oninput="onThresholdSliderInput()" onchange="saveThreshold()" style="flex-grow: 1; padding: 0; height: 6px; background: var(--border-color); border-radius: 9999px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;">
+                            <span class="slider-val" id="risk-threshold-val" style="font-weight: 700; font-size: 14px; width: 40px; text-align: right;">0.65</span>
+                        </div>
+                        <span class="help-text" style="display: block; font-size: 11px; color: var(--text-muted); margin-top: 6px;">Transfers with a risk score above this value will be sent to the Escrow Center.</span>
+                    </div>
+                </div>
+
+                <div class="glass-card form-card centered-card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-user-gear text-purple"></i>
+                        <h2>Profile & Credentials</h2>
+                    </div>
+                    <p class="description">Update your username and password here.</p>
+                    <form id="settings-form" onsubmit="openUpdateCredentialsModal(event)">
+                        <div class="form-group">
+                            <label for="current-username">Current Username</label>
+                            <div class="input-with-icon">
+                                <i class="fa-solid fa-user"></i>
+                                <input type="text" id="current-username" disabled placeholder="Loading..." style="background-color: var(--bg-tertiary); cursor: not-allowed;">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                            <i class="fa-solid fa-key"></i> Change Credentials
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay" style="display: flex;">
+        <div class="glass-card login-card">
+            <div class="card-header" style="text-align: center; margin-bottom: 10px;">
+                <i class="fa-solid fa-lock text-purple" style="font-size: 2.5rem; margin-bottom: 15px; display: block;"></i>
+                <h2 style="font-size: 1.5rem;">Secure Authentication</h2>
+            </div>
+            <p class="description text-center" style="margin-bottom: 25px;">Please login to access the ShieldFL dashboard.</p>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-user"></i>
+                        <input type="text" id="login-username" name="username" autocomplete="username" placeholder="admin" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px; font-size: 16px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Authenticate
+                </button>
+                <div id="login-error" style="color: #ff6b6b; margin-top: 15px; text-align: center; display: none; font-size: 14px; font-weight: 600;">Invalid credentials</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Update Credentials Modal -->
+    <div id="update-credentials-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-card login-card">
+            <div class="card-header" style="text-align: center; margin-bottom: 10px;">
+                <i class="fa-solid fa-key text-purple" style="font-size: 2.5rem; margin-bottom: 15px; display: block;"></i>
+                <h2 style="font-size: 1.5rem;">Update Credentials</h2>
+            </div>
+            <p class="description text-center" style="margin-bottom: 25px;">Change your username and/or password.</p>
+            <form id="update-credentials-form" onsubmit="handleUpdateCredentials(event)">
+                <div class="form-group">
+                    <label for="update-current-password">Current Password</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="update-current-password" autocomplete="current-password" placeholder="Enter your current password" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="update-new-username">New Username (Optional)</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-user"></i>
+                        <input type="text" id="update-new-username" autocomplete="username" placeholder="Leave blank to keep current">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="update-new-password">New Password (Optional)</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="password" id="update-new-password" autocomplete="new-password" placeholder="Leave blank to keep current">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px; font-size: 16px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Update Credentials
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeUpdateCredentialsModal()" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 16px; background-color: rgba(255,255,255,0.1); color: var(--text-primary);">
+                    Cancel
+                </button>
+                <div id="update-credentials-error" style="color: #ff6b6b; margin-top: 15px; text-align: center; display: none; font-size: 14px; font-weight: 600;"></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="script.js"></script>
+</body>
+</html>
+/* ── Edge Database Dropdown — Blue Theme ── */
+#device-select {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #93c5fd;
+}
+
+#device-select:focus {
+    background-color: rgba(59, 130, 246, 0.25);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+#device-select option {
+    background-color: #0f2044;
+    color: #bfdbfe;
+}
+
+#device-select option:checked {
+    background-color: #1d4ed8;
+    color: #fff;
+}

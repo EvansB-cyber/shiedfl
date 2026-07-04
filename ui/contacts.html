@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldFL - Edge Contacts Database Editor</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="contacts.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-halved logo-icon"></i>
+                    <span>ShieldFL</span>
+                </div>
+                <div class="badge">3-Tier FL</div>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Back to Portal</span>
+                </a>
+                <button class="nav-item active">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span>Manage Contacts</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="dot pulse-green"></span>
+                    <span>Backend Connected</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="content-header">
+                <div class="header-title">
+                    <h1>Edge Contacts Management</h1>
+                    <p>Directly inspect and modify SQLite database records for local edge devices</p>
+                </div>
+                <div class="header-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fa-solid fa-moon" id="theme-icon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid-layout">
+                <!-- Left: Contacts Editor -->
+                <div class="glass-card contacts-card">
+                    <div class="device-selector-row">
+                        <label for="device-select">Select Edge Database:</label>
+                        <select id="device-select" onchange="loadContacts()">
+                            <option value="S1-0">S1-0 (MTN - Client 0)</option>
+                            <option value="S1-1">S1-1 (MTN - Client 1)</option>
+                            <option value="S1-2">S1-2 (MTN - Client 2)</option>
+                            <option value="S2-0">S2-0 (Telecel - Client 0)</option>
+                            <option value="S2-1">S2-1 (Telecel - Client 1)</option>
+                            <option value="S2-2">S2-2 (Telecel - Client 2)</option>
+                            <option value="S3-0">S3-0 (AirtelTigo - Client 0)</option>
+                            <option value="S3-1">S3-1 (AirtelTigo - Client 1)</option>
+                            <option value="S3-2">S3-2 (AirtelTigo - Client 2)</option>
+                        </select>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Contact Name</th>
+                                    <th>Phone Number</th>
+                                    <th>Trust Status</th>
+                                    <th>Base Risk</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="contacts-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Select an edge device to load contacts.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Add Contact Form -->
+                <div class="glass-card form-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-user-plus text-purple"></i>
+                        <h2>Create Edge Record</h2>
+                    </div>
+                    <form id="contact-form" onsubmit="addContact(event)">
+                        <div class="form-group">
+                            <label for="contact-name">Full Name</label>
+                            <div class="input-with-icon">
+                                <i class="fa-solid fa-user"></i>
+                                <input type="text" id="contact-name" placeholder="John Doe" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contact-phone">Phone Number</label>
+                            <div class="input-with-icon">
+                                <i class="fa-solid fa-phone"></i>
+                                <input type="text" id="contact-phone" placeholder="e.g. +233548123456" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group row-group">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="contact-trusted" checked onchange="toggleRiskSlider()">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Mark as Trusted Contact</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" id="risk-score-group" style="display: none;">
+                            <label for="contact-risk">Fraud Base Risk Score (0.0 - 1.0)</label>
+                            <div class="slider-wrapper">
+                                <input type="range" id="contact-risk" min="0" max="1" step="0.05" value="0.0">
+                                <span class="slider-val" id="risk-val">0.00</span>
+                            </div>
+                            <span class="help-text">Set manually for flagged, blacklisted, or suspect numbers</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-plus"></i> Save to SQLite DB
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <script src="contacts.js"></script>
+</body>
+</html>
+

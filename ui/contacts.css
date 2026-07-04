@@ -1,0 +1,106 @@
+/* Specific Styles for Contacts Page */
+
+.device-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+}
+
+.device-selector-row label {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.device-selector-row select {
+    max-width: 300px;
+}
+
+.contacts-card {
+    grid-column: span 1;
+}
+
+/* Custom Checkbox Toggle */
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-container input {
+    display: none;
+}
+
+.toggle-slider {
+    width: 44px;
+    height: 24px;
+    background-color: var(--border-color);
+    border-radius: 9999px;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.toggle-slider::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    background-color: var(--text-primary);
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+}
+
+.toggle-container input:checked + .toggle-slider {
+    background-color: var(--color-emerald);
+}
+
+.toggle-container input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+    background-color: #0f111a;
+}
+
+.toggle-label {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Range input slider styling */
+.slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.slider-wrapper input[type="range"] {
+    flex-grow: 1;
+    padding: 0;
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+.slider-wrapper input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+}
+
+.slider-val {
+    font-size: 14px;
+    font-weight: 700;
+    width: 40px;
+    text-align: right;
+}
