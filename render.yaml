@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: shieldfl
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py --serve
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    disk:
+      name: shieldfl-data
+      mountPath: /data
+      sizeGB: 1
