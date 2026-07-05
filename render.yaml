@@ -1,13 +1,23 @@
 services:
   - type: web
-    name: shieldfl
+    name: shiedfl
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: >
+      pip install torch --index-url https://download.pytorch.org/whl/cpu &&
+      pip install -r requirements.txt
     startCommand: python main.py --serve
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SECRET_KEY
+        value: shieldfl-secret-2026-ghana-momo
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: password
+      - key: DB_PATH
+        value: /data/users.db
     disk:
-      name: shieldfl-data
+      name: shiedfl-data
       mountPath: /data
       sizeGB: 1
