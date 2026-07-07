@@ -21,7 +21,7 @@ window.fetch = async function() {
             config.headers['Authorization'] = `Bearer ${authToken}`;
         }
     }
-    const response = await originalFetch(resource, config);
+    const response = await originalFetch(`${API_BASE}/login`);
     if (response.status === 401) {
         // Unauthorized, show login
         document.getElementById("login-modal").style.display = "flex";
