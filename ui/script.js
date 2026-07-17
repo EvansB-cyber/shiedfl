@@ -82,20 +82,27 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", enableAudio);
     document.addEventListener("keydown", enableAudio);
 
-    // Check auth, if authenticated load data
-    if (!authToken) {
-        document.getElementById("login-modal").style.display = "flex";
-    } else {
-        document.getElementById("login-modal").style.display = "none";
-        // 1. Fetch initial status and populate UI
-        loadTransfersLog();
-        loadEscrowQueue();
-        loadFLMetrics();
-        loadDPConfig();
-        loadFLConfig();
-        loadSimulationStatus();
-        loadThreshold();
-    }
+    
+    // Auto-login for demo — bypasses login screen
+document.getElementById("login-modal").style.display = "none";
+fetch(`${API_BASE}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "password" })
+})
+.then(r => r.json())
+.then(data => {
+    authToken = data.access_token;
+    localStorage.setItem("auth_token", authToken);
+    loadTransfersLog();
+    loadEscrowQueue();
+    loadFLMetrics();
+    loadDPConfig();
+    loadFLConfig();
+    loadSimulationStatus();
+    loadThreshold();
+})
+.catch(err => console.error("Auto-login failed:", err));
     
     // Set theme from localstorage or default to dark
     const savedTheme = localStorage.getItem("theme") || "dark";
