@@ -7,14 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
 ENV JWT_SECRET=change-me-in-production
 ENV MLFLOW_TRACKING_URI=file:/app/mlruns
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py", "--serve"]
