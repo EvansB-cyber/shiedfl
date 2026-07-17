@@ -1,4 +1,4 @@
-const API_BASE = "/api";
+﻿const API_BASE = "/api";
 let accuracyChart = null;
 let lastAnnouncedHour = null;
 let hourlyTimeAnnouncementEnabled = false;
@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown", enableAudio);
 
     
-    // Auto-login for demo — bypasses login screen
+    // Auto-login for demo â€” bypasses login screen
 document.getElementById("login-modal").style.display = "none";
 fetch(`${API_BASE}/login`, {
     method: "POST",
@@ -178,7 +178,7 @@ async function loadTransfersLog() {
                     <td>${tx.timestamp}</td>
                     <td><strong>${tx.sender_id}</strong></td>
                     <td><code>${tx.receiver_phone}</code></td>
-                    <td>GH₵${tx.amount}</td>
+                    <td>GHâ‚µ${tx.amount}</td>
                     <td>${(tx.risk_report.sms_risk_score * 100).toFixed(1)}%</td>
                     <td><strong>${(tx.risk_report.total_risk_score * 100).toFixed(1)}%</strong></td>
                     <td><span class="badge-status ${statusClass}">${statusText}</span></td>
@@ -239,7 +239,7 @@ async function loadEscrowQueue() {
                 <td><strong>${item.decision_by}</strong></td>
                 <td><strong>${item.sender_id}</strong></td>
                 <td><code>${item.receiver_phone}</code></td>
-                <td>GH₵${item.amount}</td>
+                <td>GHâ‚µ${item.amount}</td>
                 <td><small>${item.reason}</small></td>
                 <td><strong class="text-amber">${(item.risk_report.total_risk_score * 100).toFixed(1)}%</strong></td>
                 <td>
@@ -874,7 +874,7 @@ async function handleUpdateCredentials(event) {
     }
 }
 
-// ── Hamburger Sidebar ─────────────────────────────────────────
+// â”€â”€ Hamburger Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (function () {
   const sidebar = document.getElementById("sidebar");
   const hamburger = document.getElementById("hamburgerBtn");
@@ -890,17 +890,17 @@ async function handleUpdateCredentials(event) {
     hamburger.classList.remove("hidden");
   }
 
-  // Hover over hamburger → open
+  // Hover over hamburger â†’ open
   hamburger.addEventListener("mouseenter", openSidebar);
 
-  // Cursor leaves sidebar → close
+  // Cursor leaves sidebar â†’ close
   sidebar.addEventListener("mouseleave", function (e) {
     if (!hamburger.contains(e.relatedTarget)) {
       closeSidebar();
     }
   });
 
-  // Cursor leaves hamburger without entering sidebar → close
+  // Cursor leaves hamburger without entering sidebar â†’ close
   hamburger.addEventListener("mouseleave", function (e) {
     if (!sidebar.contains(e.relatedTarget)) {
       closeSidebar();
