@@ -82,8 +82,6 @@ def _escrow_hold_callback(provider_id: str, reason: str):
 
 byzantine_monitor = ByzantineEscrowMonitor(
     threshold=3,
-    # Use persistent disk path on Render, local path otherwise
-    DB_PATH=os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")),
     escrow_callback=_escrow_hold_callback,
 )
 
