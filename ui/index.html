@@ -53,10 +53,6 @@
                     <span>Manage Contacts</span>
                 </a>
                 <div style="flex-grow: 1;"></div>
-                <button class="nav-item text-danger" onclick="logout()" style="color: #ff6b6b; margin-top: auto; border-top: 1px solid rgba(255,107,107,0.2);">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                    <span>Logout</span>
-                </button>
             </nav>
 
             <!-- Live Traffic Simulation Toggle -->
@@ -394,120 +390,12 @@
                         <span class="help-text" style="display: block; font-size: 11px; color: var(--text-muted); margin-top: 6px;">Transfers with a risk score above this value will be sent to the Escrow Center.</span>
                     </div>
                 </div>
-
-                <div class="glass-card form-card centered-card" style="margin-top: 20px;">
-                    <div class="card-header">
-                        <i class="fa-solid fa-user-gear text-purple"></i>
-                        <h2>Profile & Credentials</h2>
-                    </div>
-                    <p class="description">Update your username and password here.</p>
-                    <form id="settings-form" onsubmit="openUpdateCredentialsModal(event)">
-                        <div class="form-group">
-                            <label for="current-username">Current Username</label>
-                            <div class="input-with-icon">
-                                <i class="fa-solid fa-user"></i>
-                                <input type="text" id="current-username" disabled placeholder="Loading..." style="background-color: var(--bg-tertiary); cursor: not-allowed;">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
-                            <i class="fa-solid fa-key"></i> Change Credentials
-                        </button>
-                    </form>
-                </div>
             </section>
 
         </main>
-    </div>
-
-    
-            <p class="description text-center" style="margin-bottom: 25px;">Please login to access the ShieldFL dashboard.</p>
-            <form id="login-form" onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label for="login-username">Username</label>
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-user"></i>
-                        <input type="text" id="login-username" name="username" autocomplete="username" placeholder="admin" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Password</label>
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-key"></i>
-                        <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="password" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px; font-size: 16px;">
-                    <i class="fa-solid fa-right-to-bracket"></i> Authenticate
-                </button>
-                <div id="login-error" style="color: #ff6b6b; margin-top: 15px; text-align: center; display: none; font-size: 14px; font-weight: 600;">Invalid credentials</div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Update Credentials Modal -->
-    <div id="update-credentials-modal" class="modal-overlay" style="display: none;">
-        <div class="glass-card login-card">
-            <div class="card-header" style="text-align: center; margin-bottom: 10px;">
-                <i class="fa-solid fa-key text-purple" style="font-size: 2.5rem; margin-bottom: 15px; display: block;"></i>
-                <h2 style="font-size: 1.5rem;">Update Credentials</h2>
-            </div>
-            <p class="description text-center" style="margin-bottom: 25px;">Change your username and/or password.</p>
-            <form id="update-credentials-form" onsubmit="handleUpdateCredentials(event)">
-                <div class="form-group">
-                    <label for="update-current-password">Current Password</label>
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-lock"></i>
-                        <input type="password" id="update-current-password" autocomplete="current-password" placeholder="Enter your current password" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="update-new-username">New Username (Optional)</label>
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-user"></i>
-                        <input type="text" id="update-new-username" autocomplete="username" placeholder="Leave blank to keep current">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="update-new-password">New Password (Optional)</label>
-                    <div class="input-with-icon">
-                        <i class="fa-solid fa-key"></i>
-                        <input type="password" id="update-new-password" autocomplete="new-password" placeholder="Leave blank to keep current">
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px; padding: 12px; font-size: 16px;">
-                    <i class="fa-solid fa-floppy-disk"></i> Update Credentials
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="closeUpdateCredentialsModal()" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 16px; background-color: rgba(255,255,255,0.1); color: var(--text-primary);">
-                    Cancel
-                </button>
-                <div id="update-credentials-error" style="color: #ff6b6b; margin-top: 15px; text-align: center; display: none; font-size: 14px; font-weight: 600;"></div>
-            </form>
-        </div>
     </div>
 
     <div id="toast-container"></div>
     <script src="script.js"></script>
 </body>
 </html>
-/* ── Edge Database Dropdown — Blue Theme ── */
-#device-select {
-    background-color: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.5);
-    color: #93c5fd;
-}
-
-#device-select:focus {
-    background-color: rgba(59, 130, 246, 0.25);
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-#device-select option {
-    background-color: #0f2044;
-    color: #bfdbfe;
-}
-
-#device-select option:checked {
-    background-color: #1d4ed8;
-    color: #fff;
-}

@@ -1,72 +1,7 @@
-﻿const API_BASE = "/api";
+const API_BASE = "/api";
 let accuracyChart = null;
 let lastAnnouncedHour = null;
 let hourlyTimeAnnouncementEnabled = false;
-
-// JWT Authentication Logic
-let authToken = localStorage.getItem("auth_token") || null;
-
-// Override fetch to inject Auth token
-const originalFetch = window.fetch;
-window.fetch = async function() {
-    let [resource, config] = arguments;
-    if (typeof resource === 'string' && resource.startsWith(API_BASE) && !resource.endsWith("/login")) {
-        if (!config) {
-            config = {};
-        }
-        if (!config.headers) {
-            config.headers = {};
-        }
-        if (authToken) {
-            config.headers['Authorization'] = `Bearer ${authToken}`;
-        }
-    }
-    const response = await originalFetch(`${API_BASE}/login`);
-    if (response.status === 401) {
-        // Unauthorized, show login
-        document.getElementById("login-modal").style.display = "flex";
-        authToken = null;
-        localStorage.removeItem("auth_token");
-    }
-    return response;
-};
-
-async function handleLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById("login-username").value;
-    const password = document.getElementById("login-password").value;
-    
-    try {
-        // Use originalFetch to avoid the interceptor
-        const response = await originalFetch(`${API_BASE}/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            authToken = data.access_token;
-            localStorage.setItem("auth_token", authToken);
-            document.getElementById("login-modal").style.display = "none";
-            document.getElementById("login-error").style.display = "none";
-            showToast("Successfully authenticated", "success");
-            
-            // Reload dashboard data
-            loadTransfersLog();
-            loadEscrowQueue();
-            loadFLMetrics();
-            loadDPConfig();
-            loadSimulationStatus();
-        } else {
-            document.getElementById("login-error").style.display = "block";
-        }
-    } catch (err) {
-        console.error("Login failed:", err);
-        document.getElementById("login-error").style.display = "block";
-        document.getElementById("login-error").innerText = "Connection error";
-    }
-}
 
 // Initial Setup when page loads
 document.addEventListener("DOMContentLoaded", () => {
@@ -82,18 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", enableAudio);
     document.addEventListener("keydown", enableAudio);
 
-    
-    // Auto-login for demo â€” bypasses login screen
-document.getElementById("login-modal").style.display = "none";
-fetch(`${API_BASE}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "password" })
-})
-.then(r => r.json())
-.then(data => {
-    authToken = data.access_token;
-    localStorage.setItem("auth_token", authToken);
     loadTransfersLog();
     loadEscrowQueue();
     loadFLMetrics();
@@ -101,9 +24,7 @@ fetch(`${API_BASE}/login`, {
     loadFLConfig();
     loadSimulationStatus();
     loadThreshold();
-})
-.catch(err => console.error("Auto-login failed:", err));
-    
+
     // Set theme from localstorage or default to dark
     const savedTheme = localStorage.getItem("theme") || "dark";
     document.documentElement.setAttribute("data-theme", savedTheme);
@@ -141,8 +62,7 @@ function switchTab(tabId) {
         loadFLMetrics(); // Refresh when opening
     } else if (tabId === "settings-tab") {
         headerTitle.innerText = "Profile & Settings";
-        headerSub.innerText = "Manage your authentication credentials";
-        loadCurrentUsername(); // Load username when opening settings
+        headerSub.innerText = "Manage dashboard configuration";
     }
 }
 
@@ -178,7 +98,7 @@ async function loadTransfersLog() {
                     <td>${tx.timestamp}</td>
                     <td><strong>${tx.sender_id}</strong></td>
                     <td><code>${tx.receiver_phone}</code></td>
-                    <td>GHâ‚µ${tx.amount}</td>
+                    <td>GH₵${tx.amount}</td>
                     <td>${(tx.risk_report.sms_risk_score * 100).toFixed(1)}%</td>
                     <td><strong>${(tx.risk_report.total_risk_score * 100).toFixed(1)}%</strong></td>
                     <td><span class="badge-status ${statusClass}">${statusText}</span></td>
@@ -239,7 +159,7 @@ async function loadEscrowQueue() {
                 <td><strong>${item.decision_by}</strong></td>
                 <td><strong>${item.sender_id}</strong></td>
                 <td><code>${item.receiver_phone}</code></td>
-                <td>GHâ‚µ${item.amount}</td>
+                <td>GH₵${item.amount}</td>
                 <td><small>${item.reason}</small></td>
                 <td><strong class="text-amber">${(item.risk_report.total_risk_score * 100).toFixed(1)}%</strong></td>
                 <td>
@@ -779,102 +699,7 @@ function stopSimPolling() {
     }
 }
 
-// ==========================================
-// USER AUTHENTICATION & SETTINGS
-// ==========================================
-function logout() {
-    authToken = null;
-    localStorage.removeItem("auth_token");
-    document.getElementById("login-modal").style.display = "flex";
-    showToast("Logged out successfully.", "info");
-}
-
-async function loadCurrentUsername() {
-    try {
-        const response = await fetch(`${API_BASE}/users/me`);
-        if (response.ok) {
-            const data = await response.json();
-            document.getElementById("current-username").value = data.username;
-        }
-    } catch (err) {
-        console.error("Error loading current username:", err);
-    }
-}
-
-function openUpdateCredentialsModal(event) {
-    event.preventDefault();
-    document.getElementById("update-credentials-modal").style.display = "flex";
-    document.getElementById("update-credentials-form").reset();
-    document.getElementById("update-credentials-error").style.display = "none";
-}
-
-function closeUpdateCredentialsModal() {
-    document.getElementById("update-credentials-modal").style.display = "none";
-    document.getElementById("update-credentials-form").reset();
-    document.getElementById("update-credentials-error").style.display = "none";
-}
-
-async function handleUpdateCredentials(event) {
-    event.preventDefault();
-    
-    const currentPassword = document.getElementById("update-current-password").value;
-    const newUsername = document.getElementById("update-new-username").value;
-    const newPassword = document.getElementById("update-new-password").value;
-    
-    if (!currentPassword) {
-        document.getElementById("update-credentials-error").innerText = "Current password is required";
-        document.getElementById("update-credentials-error").style.display = "block";
-        return;
-    }
-    
-    if (!newUsername && !newPassword) {
-        document.getElementById("update-credentials-error").innerText = "Please enter at least a new username or password";
-        document.getElementById("update-credentials-error").style.display = "block";
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/users/me`, {
-            method: "PUT",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`
-            },
-            body: JSON.stringify({
-                current_password: currentPassword,
-                new_username: newUsername || null,
-                new_password: newPassword || null
-            })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            // Update token with new credentials
-            authToken = data.access_token;
-            localStorage.setItem("auth_token", authToken);
-            
-            showToast("Credentials updated successfully!", "success");
-            closeUpdateCredentialsModal();
-            
-            // Reload current username
-            loadCurrentUsername();
-            
-            // Clear login fields so if they return later, they'll need to re-authenticate
-            document.getElementById("login-username").value = "";
-            document.getElementById("login-password").value = "";
-        } else {
-            const err = await response.json();
-            document.getElementById("update-credentials-error").innerText = err.detail || "Failed to update credentials";
-            document.getElementById("update-credentials-error").style.display = "block";
-        }
-    } catch (err) {
-        console.error("Error updating credentials:", err);
-        document.getElementById("update-credentials-error").innerText = "Connection error";
-        document.getElementById("update-credentials-error").style.display = "block";
-    }
-}
-
-// â”€â”€ Hamburger Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Hamburger Sidebar ─────────────────────────────────────────
 (function () {
   const sidebar = document.getElementById("sidebar");
   const hamburger = document.getElementById("hamburgerBtn");
@@ -890,17 +715,17 @@ async function handleUpdateCredentials(event) {
     hamburger.classList.remove("hidden");
   }
 
-  // Hover over hamburger â†’ open
+  // Hover over hamburger → open
   hamburger.addEventListener("mouseenter", openSidebar);
 
-  // Cursor leaves sidebar â†’ close
+  // Cursor leaves sidebar → close
   sidebar.addEventListener("mouseleave", function (e) {
     if (!hamburger.contains(e.relatedTarget)) {
       closeSidebar();
     }
   });
 
-  // Cursor leaves hamburger without entering sidebar â†’ close
+  // Cursor leaves hamburger without entering sidebar → close
   hamburger.addEventListener("mouseleave", function (e) {
     if (!sidebar.contains(e.relatedTarget)) {
       closeSidebar();

@@ -6,34 +6,37 @@ import random
 import time
 import threading
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-import jwt
-from datetime import timedelta
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from global_layer.global_server import GlobalServer
 from provider_layer.provider_server import ProviderServer
 from edge_layer.edge_device import EdgeDevice
-from utils.auth_db import get_user, verify_password, get_password_hash, update_user_credentials
+from utils.auth_db import get_user
 from byzantine_aggregators import TrimmedMeanAggregator, KrumAggregator, ByzantineEscrowMonitor
+from api_security import apply_security, require_admin
 
-# JWT Configuration
-SECRET_KEY = "your-super-secret-key-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440
-
-security = HTTPBearer()
+# NOTE: authentication has been removed from this deployment — the dashboard
+# is public. ADMIN_USER is used only where the code still needs a username to
+# look up admin status (e.g. escrow release/block, clearing byzantine flags).
+ADMIN_USER = "admin"
 
 app = FastAPI(title="3-Tier Federated Learning Escrow Backend")
+apply_security(app)
 
+# FIX: allow_origins=["*"] + allow_credentials=True is an invalid/unsafe combination
+# (most browsers reject it outright, and if honored it defeats CORS entirely for
+# authenticated requests). Restrict to explicit origins via env var.
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,7 +82,8 @@ def _escrow_hold_callback(provider_id: str, reason: str):
 
 byzantine_monitor = ByzantineEscrowMonitor(
     threshold=3,
-    db_conn=None,
+    # Use persistent disk path on Render, local path otherwise
+    DB_PATH=os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")),
     escrow_callback=_escrow_hold_callback,
 )
 
@@ -133,39 +137,6 @@ class FedStrategyConfigRequest(BaseModel):
     beta1: float = 0.9
     beta2: float = 0.99
     tau: float = 1e-3
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class UpdateCredentialsRequest(BaseModel):
-    current_password: str
-    new_username: Optional[str] = None
-    new_password: Optional[str] = None
-
-# JWT Helpers
-def create_access_token(username: str):
-    payload = {
-        "username": username,
-        "exp": datetime.datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(credentials: HTTPAuthorizationCredentials) -> str:
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("username")
-        if not isinstance(username, str):
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return username
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    return verify_token(credentials)
 
 # Background Simulation
 def run_background_transfers():
@@ -244,7 +215,7 @@ def _internal_transfer(request: TransferRequest):
     escrow_decision = provider.evaluate_escrow(
         transfer_id, request.sender_id, request.receiver_phone, request.amount, risk_report, message=request.message
     )
-    
+
     # Apply dynamic threshold if heuristic agent doesn't auto-resolve
     if escrow_decision.get("status") == "APPROVED" and escrow_decision.get("reason", "") == "Passed security filters.":
         if risk_report["total_risk_score"] >= RISK_THRESHOLD:
@@ -273,40 +244,9 @@ def _internal_transfer(request: TransferRequest):
 
     return transaction
 
-# Auth endpoints
-@app.post("/api/login")
-def login(request: LoginRequest):
-    user = get_user(request.username)
-    if not user or not verify_password(request.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token(request.username)
-    return {"access_token": access_token, "token_type": "bearer", "username": request.username}
-
-@app.get("/api/users/me")
-def get_current_user_info(user: str = Depends(get_current_user)):
-    user_record = get_user(user)
-    if not user_record:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"username": user_record["username"]}
-
-@app.put("/api/users/me")
-def update_credentials(request: UpdateCredentialsRequest, user: str = Depends(get_current_user)):
-    user_record = get_user(user)
-    if not user_record:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not verify_password(request.current_password, user_record["password_hash"]):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
-    new_username = request.new_username or user
-    new_password = request.new_password or request.current_password
-    success = update_user_credentials(user, new_username, new_password)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to update credentials. Username may already exist.")
-    access_token = create_access_token(new_username)
-    return {"access_token": access_token, "token_type": "bearer", "username": new_username, "message": "Credentials updated successfully"}
-
 # Device endpoints
 @app.get("/api/devices")
-def get_devices(user: str = Depends(get_current_user)):
+def get_devices():
     result = []
     for dev_id, dev in DEVICES.items():
         contacts = dev.contact_db.get_all_contacts()
@@ -321,13 +261,13 @@ def get_devices(user: str = Depends(get_current_user)):
     return result
 
 @app.get("/api/devices/{device_id}/contacts")
-def get_device_contacts(device_id: str, user: str = Depends(get_current_user)):
+def get_device_contacts(device_id: str):
     if device_id not in DEVICES:
         raise HTTPException(status_code=404, detail="Device not found")
     return DEVICES[device_id].contact_db.get_all_contacts()
 
 @app.post("/api/devices/{device_id}/contacts")
-def add_device_contact(device_id: str, contact: ContactCreate, user: str = Depends(get_current_user)):
+def add_device_contact(device_id: str, contact: ContactCreate):
     if device_id not in DEVICES:
         raise HTTPException(status_code=404, detail="Device not found")
     success = DEVICES[device_id].contact_db.add_contact(
@@ -338,7 +278,7 @@ def add_device_contact(device_id: str, contact: ContactCreate, user: str = Depen
     return {"message": "Contact added successfully"}
 
 @app.delete("/api/devices/{device_id}/contacts/{contact_id}")
-def delete_device_contact(device_id: str, contact_id: int, user: str = Depends(get_current_user)):
+def delete_device_contact(device_id: str, contact_id: int):
     if device_id not in DEVICES:
         raise HTTPException(status_code=404, detail="Device not found")
     deleted = DEVICES[device_id].contact_db.delete_contact(contact_id)
@@ -347,15 +287,15 @@ def delete_device_contact(device_id: str, contact_id: int, user: str = Depends(g
     return {"message": "Contact deleted successfully"}
 
 @app.post("/api/transfer")
-def initiate_transfer(request: TransferRequest, user: str = Depends(get_current_user)):
+def initiate_transfer(request: TransferRequest):
     return _internal_transfer(request)
 
 @app.get("/api/transfers")
-def get_transfers(user: str = Depends(get_current_user)):
+def get_transfers():
     return TRANSFERS_LOG
 
 @app.get("/api/escrow")
-def get_escrow(user: str = Depends(get_current_user)):
+def get_escrow():
     escrow_list = []
     for provider in PROVIDERS.values():
         for record in provider.escrow_records.values():
@@ -364,7 +304,9 @@ def get_escrow(user: str = Depends(get_current_user)):
     return escrow_list
 
 @app.post("/api/escrow/{transfer_id}/action")
-def manage_escrow(transfer_id: str, request: EscrowActionRequest, user: str = Depends(get_current_user)):
+def manage_escrow(transfer_id: str, request: EscrowActionRequest):
+    require_admin(get_user(ADMIN_USER))
+
     record = None
     target_provider = None
     for provider in PROVIDERS.values():
@@ -372,10 +314,12 @@ def manage_escrow(transfer_id: str, request: EscrowActionRequest, user: str = De
             record = provider.escrow_records[transfer_id]
             target_provider = provider
             break
+
     if not record:
         raise HTTPException(status_code=404, detail="Escrow record not found")
     if request.action not in ["RELEASE", "BLOCK"]:
         raise HTTPException(status_code=400, detail="Invalid escrow action. Choose 'RELEASE' or 'BLOCK'")
+
     resolved_record = target_provider.resolve_escrow(transfer_id, request.action)
     for idx, tx in enumerate(TRANSFERS_LOG):
         if tx["transfer_id"] == transfer_id:
@@ -386,8 +330,11 @@ def manage_escrow(transfer_id: str, request: EscrowActionRequest, user: str = De
     return resolved_record
 
 @app.post("/api/federated/round")
-def run_federated_round(user: str = Depends(get_current_user)):
-    next_round = len(GLOBAL_SERVER.metrics_history)
+def run_federated_round():
+    require_admin(get_user(ADMIN_USER))
+
+    next_round = len(GLOBAL_SERVER.metrics_history) + 1
+
     provider_updates = []
     byzantine_report = {}
     mu = FEDPROX_MU if FEDPROX_ENABLED else 0.0
@@ -416,7 +363,7 @@ def run_federated_round(user: str = Depends(get_current_user)):
         # 2. Provider aggregates locally
         p_sms_weights, p_call_weights = provider.aggregate_local_updates(client_results)
 
-        # INSERT #3 — Tier 1→2 Trimmed Mean (inside for loop, before append)
+        # Tier 1->2 Trimmed Mean
         if BYZANTINE_ENABLED and len(client_results) >= 3:
             sms_weight_list = [r["sms_weights"] for r in client_results if "sms_weights" in r]
             if len(sms_weight_list) >= 3:
@@ -438,7 +385,7 @@ def run_federated_round(user: str = Depends(get_current_user)):
             "call_weights": p_call_weights
         })
 
-    # INSERT #4 — Tier 2→3 Multi-Krum (outside for loop, before global aggregation)
+    # Tier 2->3 Multi-Krum
     if BYZANTINE_ENABLED and len(provider_updates) >= 2:
         provider_id_list = list(PROVIDERS.keys())
         sms_updates = [upd["sms_weights"] for upd in provider_updates]
@@ -461,11 +408,11 @@ def run_federated_round(user: str = Depends(get_current_user)):
 
     # 4. Log metrics
     new_metrics = GLOBAL_SERVER.log_metrics(round_id=next_round)
-    
+
     if num_clients > 0:
         new_metrics["avg_training_time_s"] = total_training_time / num_clients
         new_metrics["avg_memory_mb"] = total_memory_mb / num_clients
-            
+
     # Run baselines on one device
     baseline_device = list(DEVICES.values())[0]
     baselines = baseline_device.train_baselines()
@@ -478,9 +425,8 @@ def run_federated_round(user: str = Depends(get_current_user)):
     for dev in DEVICES.values():
         dev.set_model_weights(g_sms, g_call)
 
-    # INSERT #5 — attach Byzantine report
     new_metrics["byzantine_report"] = byzantine_report
-    
+
     # Calculate FP rate from recent transfers
     # False Positive: is_spam_simulation == False, but status is HELD_IN_ESCROW or BLOCKED
     recent_transfers = [t for t in TRANSFERS_LOG if t.get("is_spam_simulation") is not None]
@@ -497,15 +443,15 @@ def run_federated_round(user: str = Depends(get_current_user)):
     return new_metrics
 
 @app.get("/api/federated/metrics")
-def get_federated_metrics(user: str = Depends(get_current_user)):
+def get_federated_metrics():
     return GLOBAL_SERVER.metrics_history
 
 @app.get("/api/federated/config")
-def get_federated_config(user: str = Depends(get_current_user)):
+def get_federated_config():
     return {"dp_enabled": DP_ENABLED, "dp_noise": DP_NOISE, "dp_clip": DP_CLIP}
 
 @app.post("/api/federated/config")
-def update_federated_config(config: DPConfigRequest, user: str = Depends(get_current_user)):
+def update_federated_config(config: DPConfigRequest):
     global DP_ENABLED, DP_NOISE, DP_CLIP
     DP_ENABLED = config.dp_enabled
     DP_NOISE = config.dp_noise
@@ -513,7 +459,7 @@ def update_federated_config(config: DPConfigRequest, user: str = Depends(get_cur
     return {"message": "Federated DP configurations updated successfully."}
 
 @app.get("/api/federated/strategy")
-def get_fed_strategy(user: str = Depends(get_current_user)):
+def get_fed_strategy():
     return {
         "fedprox_enabled": FEDPROX_ENABLED,
         "fedprox_mu": FEDPROX_MU,
@@ -525,7 +471,7 @@ def get_fed_strategy(user: str = Depends(get_current_user)):
     }
 
 @app.post("/api/federated/strategy")
-def update_fed_strategy(config: FedStrategyConfigRequest, user: str = Depends(get_current_user)):
+def update_fed_strategy(config: FedStrategyConfigRequest):
     global FEDPROX_ENABLED, FEDPROX_MU, SERVER_OPTIMIZER, SERVER_LR, SERVER_BETA1, SERVER_BETA2, SERVER_TAU
     FEDPROX_ENABLED = config.fedprox_enabled
     FEDPROX_MU = config.fedprox_mu
@@ -541,7 +487,7 @@ def update_fed_strategy(config: FedStrategyConfigRequest, user: str = Depends(ge
     return {"message": f"Strategy updated: FedProx={'on' if FEDPROX_ENABLED else 'off'} (mu={FEDPROX_MU}), server_optimizer={SERVER_OPTIMIZER}"}
 
 @app.post("/api/simulation/start")
-def start_simulation(user: str = Depends(get_current_user)):
+def start_simulation():
     global SIMULATION_RUNNING, SIMULATION_THREAD
     if SIMULATION_RUNNING:
         return {"status": "already running"}
@@ -551,11 +497,11 @@ def start_simulation(user: str = Depends(get_current_user)):
     return {"status": "started"}
 
 @app.get("/api/config/threshold")
-def get_threshold(user: str = Depends(get_current_user)):
+def get_threshold():
     return {"risk_threshold": RISK_THRESHOLD}
 
 @app.post("/api/config/threshold")
-def update_threshold(config: ThresholdConfigRequest, user: str = Depends(get_current_user)):
+def update_threshold(config: ThresholdConfigRequest):
     global RISK_THRESHOLD
     RISK_THRESHOLD = config.risk_threshold
     return {"message": f"Risk threshold updated to {RISK_THRESHOLD}"}
@@ -565,11 +511,11 @@ import io
 from fastapi.responses import StreamingResponse
 
 @app.get("/api/reports/export")
-def export_reports(user: str = Depends(get_current_user)):
+def export_reports():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "Timestamp", "Transfer ID", "Sender ID", "Receiver Phone", 
+        "Timestamp", "Transfer ID", "Sender ID", "Receiver Phone",
         "Amount", "Status", "Total Risk", "SMS Risk", "Contact Risk",
         "Decision By", "Reason", "Settlement Latency (s)", "Ground Truth Spam", "Stakeholder Type"
     ])
@@ -590,7 +536,7 @@ def export_reports(user: str = Depends(get_current_user)):
             tx.get("is_spam_simulation", ""),
             tx.get("stakeholder_type", "")
         ])
-    
+
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -599,25 +545,26 @@ def export_reports(user: str = Depends(get_current_user)):
     )
 
 @app.post("/api/simulation/stop")
-def stop_simulation(user: str = Depends(get_current_user)):
+def stop_simulation():
     global SIMULATION_RUNNING
     SIMULATION_RUNNING = False
     return {"status": "stopped"}
 
 @app.get("/api/simulation/status")
-def get_simulation_status(user: str = Depends(get_current_user)):
+def get_simulation_status():
     return {"running": SIMULATION_RUNNING}
 
-# INSERT #6 — Byzantine audit endpoints (MUST be before app.mount)
+# Byzantine audit endpoints (must be before app.mount)
 @app.get("/api/byzantine/audit")
-def get_byzantine_audit(provider_id: str = None, user: str = Depends(get_current_user)):
+def get_byzantine_audit(provider_id: str = None):
     return {
         "audit_log": byzantine_monitor.get_audit_log(provider_id),
         "flag_counts": byzantine_monitor._flag_counts,
     }
 
 @app.post("/api/byzantine/clear/{provider_id}")
-def clear_byzantine_flags(provider_id: str, user: str = Depends(get_current_user)):
+def clear_byzantine_flags(provider_id: str):
+    require_admin(get_user(ADMIN_USER))
     byzantine_monitor.clear_flags(provider_id)
     return {"status": "cleared", "provider_id": provider_id}
 
