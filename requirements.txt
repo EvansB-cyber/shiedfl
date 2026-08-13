@@ -3,7 +3,7 @@ uvicorn
 pydantic
 PyJWT
 passlib[bcrypt]
-bcrypt
+bcrypt==3.2.2
 python-multipart
 requests
 scikit-learn
