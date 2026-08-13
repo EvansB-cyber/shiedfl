@@ -3,6 +3,7 @@ uvicorn
 pydantic
 PyJWT
 passlib[bcrypt]
+bcrypt
 python-multipart
 requests
 scikit-learn
