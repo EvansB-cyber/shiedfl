@@ -99,8 +99,8 @@ def run_server(host="127.0.0.1", port=8000):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="3-Tier Federated Learning System")
     parser.add_argument("--serve", action="store_true", help="Start the FastAPI web server")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--algorithm", choices=["fedavg", "fedprox", "fedopt"], default="fedprox")
     args = parser.parse_args()
