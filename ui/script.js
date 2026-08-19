@@ -715,19 +715,15 @@ function stopSimPolling() {
     hamburger.classList.remove("hidden");
   }
 
-  // Hover over hamburger → open
-  hamburger.addEventListener("mouseenter", openSidebar);
-
-  // Cursor leaves sidebar → close
-  sidebar.addEventListener("mouseleave", function (e) {
-    if (!hamburger.contains(e.relatedTarget)) {
-      closeSidebar();
-    }
+  // Click/tap hamburger → open
+  hamburger.addEventListener("click", function (e) {
+    e.stopPropagation();
+    openSidebar();
   });
 
-  // Cursor leaves hamburger without entering sidebar → close
-  hamburger.addEventListener("mouseleave", function (e) {
-    if (!sidebar.contains(e.relatedTarget)) {
+  // Click outside sidebar → close
+  document.addEventListener("click", function (e) {
+    if (sidebar.classList.contains("sidebar-open") && !sidebar.contains(e.target)) {
       closeSidebar();
     }
   });
