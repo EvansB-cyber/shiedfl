@@ -2,7 +2,11 @@ import sqlite3
 import os
 from passlib.context import CryptContext
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
+# FIXED — uses Render's /data/users.db in production, local path in dev
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
+)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Pre-registered machine identities for edge nodes and providers
@@ -18,6 +22,7 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
@@ -36,9 +41,11 @@ def init_db():
 
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
+        admin_user = os.environ.get("ADMIN_USERNAME", "admin")
+        admin_pass = os.environ.get("ADMIN_PASSWORD", "password")
         cursor.execute(
             "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-            ("admin", get_password_hash("password"), "admin")
+            (admin_user, get_password_hash(admin_pass), "admin")
         )
 
     conn.commit()
