@@ -1,0 +1,11 @@
+SYNC_THRESHOLD = 10  # sync after 10 new confirmed labels
+
+def maybe_trigger_sync(db_conn, model, prev_state_dict, provider_client):
+    count = db_conn.execute(
+        "SELECT COUNT(*) FROM local_sms_labels WHERE synced = 0"
+    ).fetchone()[0]
+    if count >= SYNC_THRESHOLD:
+        delta = prepare_for_sync(model, prev_state_dict)
+        provider_client.submit_update(delta)
+        db_conn.execute("UPDATE local_sms_labels SET synced = 1 WHERE synced = 0")
+        db_conn.commit()
