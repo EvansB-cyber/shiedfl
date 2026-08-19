@@ -9,6 +9,7 @@ from global_layer.global_server import GlobalServer
 from provider_layer.provider_server import ProviderServer
 from edge_layer.edge_device import EdgeDevice
 from utils.ml_tracking import start_run, log_params, end_run
+from init_db import create_tables
 
 
 def run_simulation(num_rounds=5, epochs_per_round=1, fl_algorithm="fedprox"):
@@ -89,18 +90,20 @@ def run_simulation(num_rounds=5, epochs_per_round=1, fl_algorithm="fedprox"):
     end_run()
 
 
-def run_server(host="127.0.0.1", port=8000):
+def run_server(host="0.0.0.0", port=None):
     import uvicorn
+    # Render injects PORT as an env variable — fall back to 8000 locally
+    port = port or int(os.environ.get("PORT", 8000))
+    create_tables()
     print(f"Starting ShieldFL API server at http://{host}:{port}")
     print("Login: admin / password  |  Device token: edge-node / edge-secret-2026")
     uvicorn.run("api:app", host=host, port=port, reload=False)
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="3-Tier Federated Learning System")
     parser.add_argument("--serve", action="store_true", help="Start the FastAPI web server")
-    parser.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
-    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
+    parser.add_argument("--host", default="0.0.0.0")   # was 127.0.0.1)
+    parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--algorithm", choices=["fedavg", "fedprox", "fedopt"], default="fedprox")
     args = parser.parse_args()
