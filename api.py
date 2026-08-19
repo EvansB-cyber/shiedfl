@@ -19,6 +19,7 @@ from edge_layer.edge_device import EdgeDevice
 from utils.auth_db import get_user
 from byzantine_aggregators import TrimmedMeanAggregator, KrumAggregator, ByzantineEscrowMonitor
 from api_security import apply_security, require_admin
+from init_db import create_tables
 
 # NOTE: authentication has been removed from this deployment — the dashboard
 # is public. ADMIN_USER is used only where the code still needs a username to
@@ -26,6 +27,11 @@ from api_security import apply_security, require_admin
 ADMIN_USER = "admin"
 
 app = FastAPI(title="3-Tier Federated Learning Escrow Backend")
+
+@app.on_event("startup")
+def startup_db():
+    create_tables()
+
 apply_security(app)
 
 # FIX: allow_origins=["*"] + allow_credentials=True is an invalid/unsafe combination
