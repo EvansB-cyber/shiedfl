@@ -386,7 +386,7 @@ body::after {
     gap: 14px;
     width: max-content;
     padding: 10px 12px;
-    animation: marquee 18s linear infinite;
+    animation: marquee 40s linear infinite;
 }
 
 .notification-pill {
