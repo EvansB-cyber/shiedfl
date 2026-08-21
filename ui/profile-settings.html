@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile & Settings - ShieldFL</title>
+<link rel="stylesheet" href="profile-settings.css">
+</head>
+<body>
+
+<div class="ps-page">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="ps-header">
+    <div>
+      <h1>Profile &amp; Settings</h1>
+      <p class="ps-subtitle">Manage your account, security, notifications, and system preferences</p>
+    </div>
+    <div class="ps-header-right">
+      <span id="ps-save-indicator" class="ps-save-indicator hidden">Saved</span>
+      <button id="ps-save-all" class="btn btn-primary">Save Changes</button>
+    </div>
+  </header>
+
+  <div class="ps-layout">
+
+    <!-- ===================== SIDE NAV ===================== -->
+    <nav class="ps-nav">
+      <a href="#account" class="ps-nav-link active" data-target="account">Account &amp; Identity</a>
+      <a href="#notifications" class="ps-nav-link" data-target="notifications">Notifications</a>
+      <a href="#security" class="ps-nav-link" data-target="security">Security &amp; Access</a>
+      <a href="#system" class="ps-nav-link" data-target="system">System &amp; Model</a>
+      <a href="#regional" class="ps-nav-link" data-target="regional">Regional &amp; Currency</a>
+    </nav>
+
+    <!-- ===================== MAIN CONTENT ===================== -->
+    <main class="ps-content">
+
+      <!-- ---------- ACCOUNT & IDENTITY ---------- -->
+      <section id="account" class="ps-section">
+        <h2>Account &amp; Identity</h2>
+
+        <div class="ps-card">
+          <div class="ps-avatar-row">
+            <div class="ps-avatar" id="ps-avatar-preview">AR</div>
+            <div>
+              <button class="btn btn-secondary" id="ps-avatar-upload-btn">Change Photo</button>
+              <input type="file" id="ps-avatar-input" accept="image/*" hidden>
+              <p class="ps-hint">JPG or PNG, up to 2MB</p>
+            </div>
+          </div>
+
+          <div class="ps-grid-2">
+            <div class="ps-field">
+              <label for="ps-full-name">Full Name</label>
+              <input type="text" id="ps-full-name" placeholder="e.g. Appau Robert Atsu">
+            </div>
+            <div class="ps-field">
+              <label for="ps-email">Email Address</label>
+              <input type="email" id="ps-email" placeholder="you@provider.com">
+            </div>
+            <div class="ps-field">
+              <label for="ps-role">Role</label>
+              <select id="ps-role">
+                <option value="admin">Admin</option>
+                <option value="analyst">Analyst</option>
+                <option value="reviewer">Reviewer</option>
+              </select>
+            </div>
+            <div class="ps-field">
+              <label for="ps-org">Organization / Provider</label>
+              <select id="ps-org">
+                <option value="mtn">MTN Mobile Money</option>
+                <option value="telecel">Telecel Cash</option>
+                <option value="airteltigo">AirtelTigo Money</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Change Password</h3>
+          <div class="ps-grid-2">
+            <div class="ps-field">
+              <label for="ps-current-pass">Current Password</label>
+              <input type="password" id="ps-current-pass" placeholder="••••••••">
+            </div>
+            <div></div>
+            <div class="ps-field">
+              <label for="ps-new-pass">New Password</label>
+              <input type="password" id="ps-new-pass" placeholder="••••••••">
+            </div>
+            <div class="ps-field">
+              <label for="ps-confirm-pass">Confirm New Password</label>
+              <input type="password" id="ps-confirm-pass" placeholder="••••••••">
+            </div>
+          </div>
+          <p class="ps-error hidden" id="ps-pass-error">Passwords do not match.</p>
+          <button class="btn btn-secondary" id="ps-change-pass-btn">Update Password</button>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row-between">
+            <div>
+              <h3>Two-Factor Authentication</h3>
+              <p class="ps-hint">Require a verification code in addition to your password</p>
+            </div>
+            <label class="ps-toggle">
+              <input type="checkbox" id="ps-2fa-toggle">
+              <span class="ps-slider"></span>
+            </label>
+          </div>
+          <div id="ps-2fa-panel" class="ps-2fa-panel hidden">
+            <p class="ps-hint">Scan this code with your authenticator app, then enter the 6-digit code to confirm.</p>
+            <div class="ps-2fa-mock-qr">QR CODE</div>
+            <div class="ps-field ps-inline-field">
+              <input type="text" id="ps-2fa-code" placeholder="000000" maxlength="6">
+              <button class="btn btn-primary" id="ps-2fa-confirm-btn">Confirm</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Active Sessions</h3>
+          <div id="ps-sessions-list" class="ps-list"></div>
+        </div>
+      </section>
+
+      <!-- ---------- NOTIFICATIONS ---------- -->
+      <section id="notifications" class="ps-section hidden">
+        <h2>Notification Preferences</h2>
+
+        <div class="ps-card">
+          <h3>Alert Channels</h3>
+          <div class="ps-row-between">
+            <span>Email notifications</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-notif-email" checked><span class="ps-slider"></span></label>
+          </div>
+          <div class="ps-row-between">
+            <span>SMS notifications</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-notif-sms"><span class="ps-slider"></span></label>
+          </div>
+          <div class="ps-row-between">
+            <span>In-app notifications</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-notif-app" checked><span class="ps-slider"></span></label>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Risk Score Alert Threshold</h3>
+          <p class="ps-hint">Get notified when a transaction's risk score crosses this value</p>
+          <input type="range" id="ps-risk-threshold" min="0" max="100" value="70">
+          <div class="ps-range-labels">
+            <span>0</span>
+            <span id="ps-risk-threshold-value">70</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row-between">
+            <div>
+              <h3>Escrow Hold Notifications</h3>
+              <p class="ps-hint">How often should you be notified about held transactions?</p>
+            </div>
+          </div>
+          <select id="ps-escrow-notif-freq">
+            <option value="instant">Instantly</option>
+            <option value="hourly">Hourly digest</option>
+            <option value="daily">Daily digest</option>
+          </select>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row-between">
+            <span>Federated learning round completed</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-notif-fl-complete" checked><span class="ps-slider"></span></label>
+          </div>
+          <div class="ps-row-between">
+            <span>Federated learning round failed</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-notif-fl-failed" checked><span class="ps-slider"></span></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- SECURITY & ACCESS ---------- -->
+      <section id="security" class="ps-section hidden">
+        <h2>Security &amp; Access Control</h2>
+
+        <div class="ps-card">
+          <div class="ps-row-between">
+            <h3>API Keys</h3>
+            <button class="btn btn-secondary" id="ps-new-api-key-btn">Generate New Key</button>
+          </div>
+          <div id="ps-api-keys-list" class="ps-list"></div>
+        </div>
+
+        <div class="ps-card">
+          <h3>IP Allowlist</h3>
+          <p class="ps-hint">Restrict admin access to specific IP addresses. Leave empty to allow all.</p>
+          <div class="ps-field ps-inline-field">
+            <input type="text" id="ps-ip-input" placeholder="e.g. 41.66.204.0">
+            <button class="btn btn-secondary" id="ps-add-ip-btn">Add</button>
+          </div>
+          <div id="ps-ip-list" class="ps-chip-list"></div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Audit Log</h3>
+          <p class="ps-hint">A record of actions you've taken on transactions and settings</p>
+          <table class="ps-table">
+            <thead>
+              <tr><th>Action</th><th>Details</th><th>Timestamp</th></tr>
+            </thead>
+            <tbody id="ps-audit-log-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- SYSTEM & MODEL ---------- -->
+      <section id="system" class="ps-section hidden">
+        <h2>System &amp; Model Preferences</h2>
+
+        <div class="ps-card">
+          <h3>Risk Score Sensitivity</h3>
+          <p class="ps-hint">Higher sensitivity flags more transactions for escrow review (more false positives, safer overall)</p>
+          <input type="range" id="ps-sensitivity" min="1" max="5" value="3" step="1">
+          <div class="ps-range-labels">
+            <span>Lenient</span>
+            <span id="ps-sensitivity-value">Balanced</span>
+            <span>Strict</span>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Byzantine-Robust Aggregation Strategy</h3>
+          <p class="ps-hint">Current aggregation method used during federated learning rounds (read-only)</p>
+          <div class="ps-readonly-pill" id="ps-aggregation-strategy">Trimmed Mean</div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Data Retention</h3>
+          <p class="ps-hint">How long simulation and synthetic training data is kept before automatic purge</p>
+          <select id="ps-data-retention">
+            <option value="30">30 days</option>
+            <option value="90" selected>90 days</option>
+            <option value="180">180 days</option>
+            <option value="365">1 year</option>
+            <option value="forever">Keep indefinitely</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- ---------- REGIONAL & CURRENCY ---------- -->
+      <section id="regional" class="ps-section hidden">
+        <h2>Regional &amp; Currency</h2>
+
+        <div class="ps-card">
+          <div class="ps-grid-2">
+            <div class="ps-field">
+              <label for="ps-currency">Currency Display</label>
+              <select id="ps-currency">
+                <option value="GHS">Ghanaian Cedi (GH₵)</option>
+                <option value="USD">US Dollar ($)</option>
+              </select>
+            </div>
+            <div class="ps-field">
+              <label for="ps-timezone">Timezone</label>
+              <select id="ps-timezone">
+                <option value="Africa/Accra" selected>Africa/Accra (GMT)</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="ps-card">
+          <h3>Phone Number Validation</h3>
+          <p class="ps-hint">Enable network-prefix validation for Ghanaian mobile money numbers</p>
+          <div class="ps-row-between">
+            <span>MTN prefixes (024, 054, 055, 059)</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-prefix-mtn" checked><span class="ps-slider"></span></label>
+          </div>
+          <div class="ps-row-between">
+            <span>Telecel prefixes (020, 050)</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-prefix-telecel" checked><span class="ps-slider"></span></label>
+          </div>
+          <div class="ps-row-between">
+            <span>AirtelTigo prefixes (026, 027, 056, 057)</span>
+            <label class="ps-toggle"><input type="checkbox" id="ps-prefix-airteltigo" checked><span class="ps-slider"></span></label>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="profile-settings.js"></script>
+</body>
+</html>
