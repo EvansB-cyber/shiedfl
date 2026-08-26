@@ -5,18 +5,23 @@ import datetime
 import random
 import time
 import threading
+import base64
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import pyotp
+import qrcode
+import io as qr_io  # aliased so it doesn't collide with the `io` import used later for CSV export
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from global_layer.global_server import GlobalServer
 from provider_layer.provider_server import ProviderServer
 from edge_layer.edge_device import EdgeDevice
-from utils.auth_db import get_user
+from utils.auth_db import get_user, set_totp_secret, enable_totp, disable_totp
 from byzantine_aggregators import TrimmedMeanAggregator, KrumAggregator, ByzantineEscrowMonitor
 from api_security import apply_security, require_admin
 
@@ -135,6 +140,9 @@ class FedStrategyConfigRequest(BaseModel):
     beta1: float = 0.9
     beta2: float = 0.99
     tau: float = 1e-3
+
+class TOTPVerifyRequest(BaseModel):
+    code: str
 
 # Background Simulation
 def run_background_transfers():
@@ -503,6 +511,65 @@ def update_threshold(config: ThresholdConfigRequest):
     global RISK_THRESHOLD
     RISK_THRESHOLD = config.risk_threshold
     return {"message": f"Risk threshold updated to {RISK_THRESHOLD}"}
+
+# ── 2FA / TOTP endpoints ─────────────────────────────────────────
+# Scoped exactly as agreed: real secret generation + verification against
+# the single ADMIN_USER identity in users.db. This does NOT gate any other
+# request — auth enforcement was intentionally removed elsewhere in this
+# file, and reintroducing it is a separate, bigger decision. This only
+# makes the Settings → Security → 2FA panel do what it visually claims to.
+
+@app.get("/api/auth/2fa/status")
+def get_2fa_status():
+    user = get_user(ADMIN_USER)
+    if not user:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    return {"enabled": user["totp_enabled"]}
+
+@app.post("/api/auth/2fa/setup")
+def setup_2fa():
+    require_admin(get_user(ADMIN_USER))
+    user = get_user(ADMIN_USER)
+    if not user:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    secret = pyotp.random_base32()
+    set_totp_secret(ADMIN_USER, secret)  # stored, left unconfirmed until verify() succeeds
+
+    provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=ADMIN_USER, issuer_name="ShieldFL"
+    )
+
+    qr_img = qrcode.make(provisioning_uri)
+    buf = qr_io.BytesIO()
+    qr_img.save(buf, format="PNG")
+    qr_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    return {
+        "secret": secret,  # shown once, for manual entry if the QR can't be scanned
+        "provisioning_uri": provisioning_uri,
+        "qr_code_base64": f"data:image/png;base64,{qr_base64}"
+    }
+
+@app.post("/api/auth/2fa/verify")
+def verify_2fa(request: TOTPVerifyRequest):
+    require_admin(get_user(ADMIN_USER))
+    user = get_user(ADMIN_USER)
+    if not user or not user.get("totp_secret"):
+        raise HTTPException(status_code=400, detail="No 2FA setup in progress. Call setup first.")
+
+    totp = pyotp.TOTP(user["totp_secret"])
+    if not totp.verify(request.code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Invalid verification code.")
+
+    enable_totp(ADMIN_USER)
+    return {"enabled": True}
+
+@app.post("/api/auth/2fa/disable")
+def disable_2fa():
+    require_admin(get_user(ADMIN_USER))
+    disable_totp(ADMIN_USER)
+    return {"enabled": False}
 
 import csv
 import io

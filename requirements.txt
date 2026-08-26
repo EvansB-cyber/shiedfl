@@ -12,3 +12,5 @@ numpy
 networkx
 sympy
 cryptography
+   pyotp
+   qrcode[pil]

@@ -34,6 +34,15 @@ def init_db():
     if "role" not in columns:
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
 
+    # ── 2FA / TOTP support ──────────────────────────────────────
+    # totp_secret: base32 secret from pyotp, set on /api/auth/2fa/setup,
+    #              stays "pending" (unconfirmed) until verify() succeeds.
+    # totp_enabled: 0/1 flag flipped only after a successful verify().
+    if "totp_secret" not in columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
+    if "totp_enabled" not in columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0")
+
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         cursor.execute(
@@ -47,11 +56,21 @@ def init_db():
 def get_user(username: str):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash, role FROM users WHERE username = ?", (username,))
+    cursor.execute(
+        "SELECT id, username, password_hash, role, totp_secret, totp_enabled FROM users WHERE username = ?",
+        (username,)
+    )
     row = cursor.fetchone()
     conn.close()
     if row:
-        return {"id": row[0], "username": row[1], "password_hash": row[2], "role": row[3]}
+        return {
+            "id": row[0],
+            "username": row[1],
+            "password_hash": row[2],
+            "role": row[3],
+            "totp_secret": row[4],
+            "totp_enabled": bool(row[5]),
+        }
     return None
 
 def authenticate(username: str, password: str):
@@ -81,6 +100,43 @@ def update_user_credentials(old_username: str, new_username: str, new_password: 
         success = cursor.rowcount > 0
     except sqlite3.IntegrityError:
         success = False
+    conn.close()
+    return success
+
+def set_totp_secret(username: str, secret: str):
+    """Store a freshly generated secret. Left unconfirmed (totp_enabled=0)
+    until the user verifies a code against it."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE username = ?",
+        (secret, username)
+    )
+    conn.commit()
+    success = cursor.rowcount > 0
+    conn.close()
+    return success
+
+def enable_totp(username: str):
+    """Flip totp_enabled on. Call only after a successful code verification."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET totp_enabled = 1 WHERE username = ?", (username,))
+    conn.commit()
+    success = cursor.rowcount > 0
+    conn.close()
+    return success
+
+def disable_totp(username: str):
+    """Turn 2FA off and clear the stored secret so a stale one can't be reused."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE username = ?",
+        (username,)
+    )
+    conn.commit()
+    success = cursor.rowcount > 0
     conn.close()
     return success
 

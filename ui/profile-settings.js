@@ -3,9 +3,14 @@
 // Vanilla JS. Persists to localStorage under 'shieldfl_settings'.
 // Replace the persistLocal()/loadLocal() calls with real API
 // calls (fetch to your FastAPI backend) when ready.
+//
+// EXCEPTION: 2FA is no longer mocked — init2FA() below talks to
+// real /api/auth/2fa/* endpoints backed by users.db. Everything
+// else in this file is unchanged from the original mock version.
 // ============================================================
 
 const STORAGE_KEY = "shieldfl_settings";
+const PS_API_BASE = "/api";
 
 const DEFAULT_STATE = {
   fullName: "",
@@ -180,31 +185,91 @@ function initAccountSection() {
     document.getElementById("ps-confirm-pass").value = "";
   });
 
-  // 2FA toggle
+  // 2FA — real backend flow (see init2FA below)
+  init2FA();
+
+  renderSessions();
+}
+
+// ------------------------------------------------------------
+// 2FA (real backend: /api/auth/2fa/status, /setup, /verify, /disable)
+// ------------------------------------------------------------
+async function init2FA() {
   const twoFAToggle = document.getElementById("ps-2fa-toggle");
   const twoFAPanel = document.getElementById("ps-2fa-panel");
+  const qrContainer = document.getElementById("ps-2fa-mock-qr");
+
+  // Backend is the source of truth, not localStorage.
+  try {
+    const res = await fetch(`${PS_API_BASE}/auth/2fa/status`);
+    if (res.ok) {
+      const data = await res.json();
+      state.twoFAEnabled = data.enabled;
+    }
+  } catch (e) {
+    console.error("Failed to load 2FA status:", e);
+  }
+
   twoFAToggle.checked = state.twoFAEnabled;
   twoFAPanel.classList.toggle("hidden", !state.twoFAEnabled);
+  if (state.twoFAEnabled) {
+    qrContainer.textContent = "2FA is already enabled on this account.";
+  }
 
-  twoFAToggle.addEventListener("change", () => {
-    twoFAPanel.classList.toggle("hidden", !twoFAToggle.checked);
-    if (!twoFAToggle.checked) {
+  twoFAToggle.addEventListener("change", async () => {
+    if (twoFAToggle.checked) {
+      // Turning on: request a fresh secret + QR code from the backend.
+      twoFAPanel.classList.remove("hidden");
+      qrContainer.textContent = "Loading QR code...";
+      try {
+        const res = await fetch(`${PS_API_BASE}/auth/2fa/setup`, { method: "POST" });
+        if (!res.ok) throw new Error("Setup request failed");
+        const data = await res.json();
+        qrContainer.innerHTML = `<img src="${data.qr_code_base64}" alt="2FA QR code" style="width:100%;height:100%;object-fit:contain;">`;
+      } catch (e) {
+        console.error("2FA setup failed:", e);
+        qrContainer.textContent = "Failed to load QR code. Try again.";
+      }
+    } else {
+      // Turning off: clear the secret server-side too, not just the UI.
+      try {
+        await fetch(`${PS_API_BASE}/auth/2fa/disable`, { method: "POST" });
+      } catch (e) {
+        console.error("Failed to disable 2FA:", e);
+      }
       state.twoFAEnabled = false;
+      twoFAPanel.classList.add("hidden");
+      qrContainer.textContent = "QR CODE";
     }
   });
 
-  document.getElementById("ps-2fa-confirm-btn").addEventListener("click", () => {
-    const code = document.getElementById("ps-2fa-code").value;
+  document.getElementById("ps-2fa-confirm-btn").addEventListener("click", async () => {
+    const codeInput = document.getElementById("ps-2fa-code");
+    const code = codeInput.value.trim();
     if (code.length !== 6) {
       alert("Enter the 6-digit code from your authenticator app.");
       return;
     }
-    // TODO: verify code against backend
-    state.twoFAEnabled = true;
-    alert("2FA enabled successfully.");
+    try {
+      const res = await fetch(`${PS_API_BASE}/auth/2fa/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Invalid code. Please try again.");
+        return;
+      }
+      state.twoFAEnabled = true;
+      codeInput.value = "";
+      qrContainer.textContent = "2FA is already enabled on this account.";
+      alert("2FA enabled successfully.");
+    } catch (e) {
+      console.error("2FA verify failed:", e);
+      alert("Error verifying code. Check your connection and try again.");
+    }
   });
-
-  renderSessions();
 }
 
 function updateAvatarInitials() {
