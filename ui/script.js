@@ -442,11 +442,13 @@ function toggleTheme() {
 }
 
 function updateThemeIcon(theme) {
-    const icon = document.getElementById("theme-icon");
-    if (theme === "light") {
-        icon.className = "fa-solid fa-sun";
-    } else {
-        icon.className = "fa-solid fa-moon";
+    const toggleBtn = document.getElementById("theme-toggle-btn");
+    if (toggleBtn) {
+        if (theme === "light") {
+            toggleBtn.classList.add("is-light");
+        } else {
+            toggleBtn.classList.remove("is-light");
+        }
     }
 }
 

@@ -89,8 +89,10 @@
                 </div>
                 <div class="header-actions">
                     <div class="live-clock" id="live-clock" aria-live="polite">--:--</div>
-                    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark mode" title="Toggle light and dark mode">
-                        <i class="fa-solid fa-moon" id="theme-icon"></i>
+                    <button class="theme-island-toggle" onclick="toggleTheme()" aria-label="Toggle light and dark mode" title="Toggle light and dark mode" id="theme-toggle-btn">
+                        <div class="island-slider" id="island-slider"></div>
+                        <i class="fa-solid fa-sun island-icon light-icon"></i>
+                        <i class="fa-solid fa-moon island-icon dark-icon"></i>
                     </button>
                 </div>
             </header>
