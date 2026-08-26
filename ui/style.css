@@ -11,7 +11,9 @@
     --text-muted: #718096;
 
     --primary-color: #6366f1;
+    --primary-color-hover: #5153d6;
     --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    --primary-soft: rgba(99, 102, 241, 0.15);
 
     --color-emerald: #10b981;
     --color-blue: #3b82f6;
@@ -880,4 +882,418 @@ tbody tr:hover { background-color: rgba(255,255,255,0.02); }
 #sender-id option:disabled {
     color: #60a5fa;
     font-style: italic;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROFILE & SETTINGS SECTION
+   Merged from the standalone settings stylesheet. Its own
+   :root / * / body reset and duplicate .btn, .btn-primary rules
+   were dropped in favor of the ones already defined above, so
+   this section now rides the same design tokens (--primary-color,
+   --color-emerald/red/amber, --border-color, --bg-card, etc.) and
+   automatically follows [data-theme="light"] switching.
+   ══════════════════════════════════════════════════════════════ */
+
+.ps-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+}
+
+/* ===== HEADER ===== */
+.ps-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ps-header h1 {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ps-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.ps-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ps-save-indicator {
+    color: var(--color-emerald);
+    font-size: 13px;
+    font-weight: 600;
+    transition: opacity 0.3s;
+}
+
+.hidden { display: none !important; }
+
+/* ===== BUTTONS (additions only — .btn / .btn-primary already defined above) ===== */
+.btn-secondary {
+    background-color: var(--bg-card-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+.btn-secondary:hover { background-color: var(--bg-card); }
+
+.btn-danger {
+    background: transparent;
+    color: var(--color-red);
+    border: 1px solid var(--color-red);
+}
+.btn-danger:hover { background-color: rgba(239, 68, 68, 0.1); }
+
+/* ===== LAYOUT ===== */
+.ps-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 28px;
+}
+
+@media (max-width: 720px) {
+    .ps-layout { grid-template-columns: 1fr; }
+}
+
+/* ===== SIDE NAV ===== */
+.ps-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+}
+
+.ps-nav-link {
+    display: block;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+
+.ps-nav-link:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+
+.ps-nav-link.active {
+    background: var(--primary-soft);
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ===== CONTENT ===== */
+.ps-content h2 {
+    font-size: 20px;
+    margin: 0 0 16px;
+    color: var(--text-primary);
+}
+
+.ps-section { margin-bottom: 8px; }
+
+.ps-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-border-radius);
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-premium);
+}
+
+.ps-card h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ps-hint {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 4px 0 12px;
+}
+
+.ps-error {
+    color: var(--color-red);
+    font-size: 13px;
+    margin: -4px 0 12px;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.ps-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 560px) {
+    .ps-grid-2 { grid-template-columns: 1fr; }
+}
+
+.ps-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.ps-field label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.ps-field input,
+.ps-field select {
+    background: rgba(15, 17, 26, 0.4);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+}
+
+.ps-field input:focus,
+.ps-field select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.ps-inline-field {
+    flex-direction: row;
+    align-items: center;
+}
+.ps-inline-field input { flex: 1; }
+
+/* ===== TOGGLE SWITCH (namespaced so it doesn't clash with .toggle-* above) ===== */
+.ps-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.ps-toggle input { opacity: 0; width: 0; height: 0; }
+
+.ps-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--border-color);
+    border-radius: 24px;
+    transition: 0.2s;
+}
+
+.ps-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+
+.ps-toggle input:checked + .ps-slider {
+    background: var(--primary-color);
+}
+
+.ps-toggle input:checked + .ps-slider::before {
+    transform: translateX(20px);
+}
+
+.ps-row-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.ps-row-between:last-child { border-bottom: none; }
+
+/* ===== RANGE SLIDER LABELS (input[type=range] styling already covered above) ===== */
+.ps-range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+#ps-risk-threshold-value,
+#ps-sensitivity-value {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ===== AVATAR ===== */
+.ps-avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.ps-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 20px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.ps-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ===== 2FA ===== */
+.ps-2fa-panel {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.ps-2fa-mock-qr {
+    width: 140px;
+    height: 140px;
+    background: repeating-conic-gradient(var(--border-color) 0% 25%, var(--bg-base) 0% 50%) 50% / 20px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+/* ===== LISTS ===== */
+.ps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ps-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: rgba(15, 17, 26, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.ps-list-item-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.ps-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary-color);
+}
+
+.ps-badge.current {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-emerald);
+}
+
+/* ===== CHIPS ===== */
+.ps-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.ps-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 17, 26, 0.2);
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.ps-chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+}
+.ps-chip button:hover { color: var(--color-red); }
+
+/* ===== TABLE (namespaced, distinct from the plain `table` rules above) ===== */
+.ps-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ps-table th {
+    text-align: left;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ps-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.ps-table tr:last-child td { border-bottom: none; }
+
+/* ===== READONLY PILL ===== */
+.ps-readonly-pill {
+    display: inline-block;
+    background: var(--primary-soft);
+    color: var(--primary-color);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
 }
