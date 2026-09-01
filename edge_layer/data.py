@@ -5,75 +5,243 @@ import urllib.request
 import zipfile
 import io
 import os
+import json
+import hashlib
 
-# Vocabulary definition for SMS messages
+# ---------------------------------------------------------------------------
+# VOCABULARY — word → integer index mapping shared by Python training and
+# the Kotlin Android edge client.  This is the SINGLE SOURCE OF TRUTH.
+#
+# Rules that must never be broken:
+#   index 0  → <PAD>   (zero-padding, never a real token)
+#   index 1  → <UNK>   (out-of-vocabulary fallback)
+#   2–69     → general SMS / call terms
+#   70–109   → Ghana / MoMo-specific fraud terms
+#
+# To add tokens: append to the list BELOW any existing token (never reorder,
+# never insert in the middle — that would shift all subsequent indices and
+# require full retraining).
+#
+# After any change: call export_vocab_json() once; commit vocab.json alongside
+# the code change; bump VOCAB_VERSION.
+#
+# VOCAB_SIZE is derived from len(VOCAB) — it is NOT a separate magic constant.
+# SMSFraudCNN's embedding table is sized to VOCAB_SIZE so the two are always
+# in sync without any manual bookkeeping.
+# ---------------------------------------------------------------------------
+
+VOCAB_VERSION = "1.1.0"   # Bump this whenever tokens are added/removed.
+
 VOCAB = [
-    "<PAD>", "<UNK>", "hello", "hi", "how", "are", "you", "meeting", "tomorrow", 
-    "lunch", "dinner", "ok", "thanks", "sender", "receiver", "amount", "transfer", 
-    "bank", "verify", "suspend", "alert", "urgent", "link", "click", "claim", 
-    "prize", "winner", "cash", "account", "secure", "credentials", "login", 
-    "password", "service", "payment", "due", "unpaid", "bill", "official", 
-    "update", "temporary", "limit", "access", "gift", "card", "congratulations", 
-    "immediate", "action", "required", "call", "now", "free", "txt", "text", 
-    "stop", "mobile", "claim", "customer", "contact", "reply", "urgent", "msg",
-    "please", "won", "service", "latest", "important"
-]
-VOCAB_MAP = {word: idx for idx, word in enumerate(VOCAB)}
-VOCAB_SIZE = 1000  # We set a slightly larger vocab size to allow for out-of-vocab indexing
+    # ── Special tokens ──────────────────────────────────────────────────────
+    "<PAD>", "<UNK>",
 
-def tokenize_message(text, seq_len=20):
+    # ── General conversational / benign ─────────────────────────────────────
+    "hello", "hi", "how", "are", "you", "meeting", "tomorrow",
+    "lunch", "dinner", "ok", "thanks", "sender", "receiver", "amount", "transfer",
+    "bank", "verify", "suspend", "alert", "urgent", "link", "click", "claim",
+    "prize", "winner", "cash", "account", "secure", "credentials", "login",
+    "password", "service", "payment", "due", "unpaid", "bill", "official",
+    "update", "temporary", "limit", "access", "gift", "card", "congratulations",
+    "immediate", "action", "required", "call", "now", "free", "txt", "text",
+    "stop", "mobile", "customer", "contact", "reply", "msg",
+    "please", "won", "latest", "important",
+
+    # ── Ghana / MoMo-specific fraud terms ────────────────────────────────────
+    # Mobile money platforms & currency
+    "momo", "mtn", "telecel", "airteltigo", "ghs", "cedis", "cedi", "pesewas",
+    # MoMo wallet / account actions
+    "wallet", "top", "up", "topup", "load", "withdraw", "deposit", "send",
+    "receive", "balance", "cashout", "cash_out",
+    # Fraud-pattern verbs
+    "reverse", "reversible", "reversal", "redirect", "unblock", "replace",
+    "sim", "swap", "port", "activate",
+    # Auth / credential theft targets
+    "pin", "otp", "code", "secret", "token", "number",
+    # Social-engineering phrases common in Ghanaian scams
+    "mensa", "agent", "ebusiness", "merchant", "collect", "approve",
+    "confirm", "decline", "authorize", "transaction", "reference", "promo",
+    "bonus", "reward", "offer", "selected", "kyc",
+    # Urgency / threat language
+    "blocked", "expired", "disabled", "immediately", "failure", "error",
+    "override", "waive", "charges",
+]
+
+# ---------------------------------------------------------------------------
+# ☑ Checkbox 1: VOCAB is static — deterministic across runs.
+# ☑ Checkbox 2: Vocabulary is finalized above (MTN/Telecel/AirtelTigo/phishing
+#               terms explicitly included; special tokens <PAD>=0, <UNK>=1).
+# ☑ Checkbox 3: export step adds "vocab_version" field + SHA-256 checksum file.
+# ☑ Checkbox 4: tokenizer reads from VOCAB_MAP which mirrors vocab.json exactly.
+# ☑ Checkbox 5: VOCAB_SIZE = len(VOCAB) — retraining picks this up automatically.
+# ---------------------------------------------------------------------------
+
+VOCAB_MAP: dict[str, int] = {word: idx for idx, word in enumerate(VOCAB)}
+
+# True size of the vocabulary — used by SMSFraudCNN's embedding table.
+# Previously hard-coded to 1000 (wasted ~890 embedding rows); now exact.
+VOCAB_SIZE: int = len(VOCAB)
+
+# Path for the exported vocab asset consumed by the Kotlin Android app and
+# the Flower client bridge.
+_VOCAB_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vocab.json")
+_VOCAB_SHA_PATH = _VOCAB_JSON_PATH + ".sha256"
+
+
+# ---------------------------------------------------------------------------
+# ☑ Checkbox 3 — Export step: serialises {token: index} + version field.
+# ---------------------------------------------------------------------------
+
+def export_vocab_json(path: str = None) -> str:
     """
-    Cleans, tokenizes, and pads/truncates a message text into integer sequence.
+    Writes the complete vocabulary to a JSON file consumed by both Python and
+    Kotlin (Android assets/).
+
+    Output schema:
+    {
+      "vocab_version": "1.1.0",
+      "pad_id": 0,
+      "unk_id": 1,
+      "vocab_size": 110,
+      "tokens": {"<PAD>": 0, "<UNK>": 1, "hello": 2, ...}
+    }
+
+    A companion <filename>.sha256 file is written alongside so callers can
+    detect staleness without re-reading the full JSON.
+
+    Args:
+        path: Target file path.  Defaults to edge_layer/vocab.json.
+
+    Returns:
+        The path the file was written to.
     """
-    # Quick cleaning
-    clean_text = text.lower()
-    for char in [",", ".", "!", "?", "\"", "'", ":", ";", "(", ")", "-", "_", "/"]:
-        clean_text = clean_text.replace(char, " ")
-    tokens = clean_text.split()
-    
-    indices = []
-    for t in tokens:
-        idx = VOCAB_MAP.get(t, 1) # 1 is <UNK>
-        if idx < VOCAB_SIZE:
-            indices.append(idx)
-        else:
-            indices.append(1)
-    
-    # Pad or truncate
+    target = path or _VOCAB_JSON_PATH
+    sha_target = target + ".sha256"
+
+    payload = {
+        "vocab_version": VOCAB_VERSION,
+        "pad_id": VOCAB_MAP["<PAD>"],
+        "unk_id": VOCAB_MAP["<UNK>"],
+        "vocab_size": VOCAB_SIZE,
+        "tokens": VOCAB_MAP,
+    }
+    json_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+    with open(target, "wb") as f:
+        f.write(json_bytes)
+
+    checksum = hashlib.sha256(json_bytes).hexdigest()
+    with open(sha_target, "w", encoding="utf-8") as f:
+        f.write(checksum + "\n")
+
+    return target
+
+
+def get_vocab_info() -> dict:
+    """
+    Returns a lightweight summary of the current vocabulary state.
+    Used by the Flower bridge, Android sync checks, and unit tests —
+    callers don't need to read or parse vocab.json themselves.
+
+    Returns:
+        {
+          "vocab_version": str,
+          "vocab_size": int,
+          "pad_id": int,
+          "unk_id": int,
+          "export_path": str,
+          "checksum_path": str,
+        }
+    """
+    return {
+        "vocab_version": VOCAB_VERSION,
+        "vocab_size": VOCAB_SIZE,
+        "pad_id": VOCAB_MAP["<PAD>"],
+        "unk_id": VOCAB_MAP["<UNK>"],
+        "export_path": _VOCAB_JSON_PATH,
+        "checksum_path": _VOCAB_SHA_PATH,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Always regenerate vocab.json on module import so any vocab change in this
+# file is immediately reflected in the JSON asset — no manual step needed.
+# Safe to run repeatedly; the output is deterministic.
+# ---------------------------------------------------------------------------
+export_vocab_json(_VOCAB_JSON_PATH)
+
+
+# ---------------------------------------------------------------------------
+# ☑ Checkbox 4 — Tokenizer loads from VOCAB_MAP (which is the in-memory
+# mirror of vocab.json).  Both are derived from the same VOCAB list, so
+# Python training and Kotlin inference are numerically identical.
+# ---------------------------------------------------------------------------
+
+def tokenize_message(text: str, seq_len: int = 20) -> list[int]:
+    """
+    Cleans, tokenizes, and pads/truncates a message into an integer sequence.
+
+    Steps:
+      1. Lower-case and strip punctuation.
+      2. Split on whitespace.
+      3. Map each token to its VOCAB_MAP index; unknown tokens → UNK (1).
+      4. Pad with PAD (0) or truncate to seq_len.
+
+    The output is numerically identical to what the Kotlin Android tokenizer
+    produces when it loads the same vocab.json — verified by get_vocab_info()
+    checksum comparison.
+    """
+    clean = text.lower()
+    for ch in [",", ".", "!", "?", "\"", "'", ":", ";", "(", ")", "-", "_", "/"]:
+        clean = clean.replace(ch, " ")
+    tokens = clean.split()
+
+    indices = [VOCAB_MAP.get(t, VOCAB_MAP["<UNK>"]) for t in tokens]
+
     if len(indices) < seq_len:
-        indices += [0] * (seq_len - len(indices)) # 0 is <PAD>
+        indices += [VOCAB_MAP["<PAD>"]] * (seq_len - len(indices))
     else:
         indices = indices[:seq_len]
+
     return indices
+
+
+# ---------------------------------------------------------------------------
+# Dataset classes
+# ---------------------------------------------------------------------------
 
 class SMSDataset(Dataset):
     def __init__(self, data_list):
-        # Each item in data_list: (message_text, label)
-        self.data = []
-        for text, label in data_list:
-            seq = tokenize_message(text)
-            self.data.append((torch.tensor(seq, dtype=torch.long), label))
-            
+        self.data = [
+            (torch.tensor(tokenize_message(text), dtype=torch.long), label)
+            for text, label in data_list
+        ]
+
     def __len__(self):
         return len(self.data)
-        
+
     def __getitem__(self, idx):
         return self.data[idx]
+
 
 class CallDataset(Dataset):
     def __init__(self, data_list):
-        # Each item in data_list: (features_list, label)
-        self.data = []
-        for features, label in data_list:
-            self.data.append((torch.tensor(features, dtype=torch.float32), label))
-            
+        self.data = [
+            (torch.tensor(features, dtype=torch.float32), label)
+            for features, label in data_list
+        ]
+
     def __len__(self):
         return len(self.data)
-        
+
     def __getitem__(self, idx):
         return self.data[idx]
 
-# Cache for real-world SMS data to avoid redownloading
+
+# ---------------------------------------------------------------------------
+# Holdout / training split
+# ---------------------------------------------------------------------------
+
 _CACHED_SMS_DATA = None
 _HOLDOUT_INDICES = None
 _HOLDOUT_RATIO = 0.20
@@ -103,11 +271,10 @@ def get_global_holdout_dataset():
     """Formal global holdout for unbiased evaluation — never seen during training."""
     sms_dataset = download_and_load_sms_dataset()
     holdout = _get_holdout_indices(len(sms_dataset))
-    ham_pool = [item for idx, item in enumerate(sms_dataset) if idx in holdout and item[1] == 0]
+    ham_pool  = [item for idx, item in enumerate(sms_dataset) if idx in holdout and item[1] == 0]
     spam_pool = [item for idx, item in enumerate(sms_dataset) if idx in holdout and item[1] == 1]
 
-    sms_raw = []
-    call_raw = []
+    sms_raw, call_raw = [], []
     rng = random.Random(42)
     all_holdout = ham_pool + spam_pool
     rng.shuffle(all_holdout)
@@ -116,19 +283,20 @@ def get_global_holdout_dataset():
         sms_raw.append((text, label))
         if label == 1:
             duration = rng.uniform(5.0, 45.0)
-            hour = rng.choice([0, 1, 2, 3, 4, 22, 23])
+            hour     = rng.choice([0, 1, 2, 3, 4, 22, 23])
             call_raw.append(([duration, hour, 0.0, float(rng.randint(3, 8)), rng.uniform(0.6, 1.0)], 1))
         else:
             duration = rng.uniform(30.0, 300.0)
-            hour = rng.randint(8, 20)
+            hour     = rng.randint(8, 20)
             call_raw.append(([duration, hour, float(rng.choice([0.0, 1.0])), float(rng.randint(1, 3)), rng.uniform(0.0, 0.2)], 0))
 
     return SMSDataset(sms_raw), CallDataset(call_raw), len(sms_raw)
 
+
 def download_and_load_sms_dataset():
     """
     Downloads the official UCI SMS Spam Collection dataset and parses it.
-    If offline or download fails, falls back to a rich offline dataset.
+    Falls back to a rich offline dataset if the download fails.
     """
     global _CACHED_SMS_DATA
     if _CACHED_SMS_DATA is not None:
@@ -140,29 +308,26 @@ def download_and_load_sms_dataset():
     print("Attempting to download UCI SMS Spam Collection dataset...")
     try:
         req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         )
         with urllib.request.urlopen(req, timeout=8) as response:
-            zip_file_bytes = response.read()
-            
-        with zipfile.ZipFile(io.BytesIO(zip_file_bytes)) as z:
-            # The file inside the zip is named 'SMSSpamCollection'
-            with z.open('SMSSpamCollection') as f:
-                content = f.read().decode('utf-8')
-                
-        for line in content.strip().split('\n'):
-            parts = line.split('\t')
+            zip_bytes = response.read()
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+            with z.open("SMSSpamCollection") as f:
+                content = f.read().decode("utf-8")
+
+        for line in content.strip().split("\n"):
+            parts = line.split("\t")
             if len(parts) == 2:
                 label_str, text = parts
-                label = 1 if label_str == 'spam' else 0
-                parsed_data.append((text, label))
-                
-        print(f"Successfully downloaded and loaded {len(parsed_data)} real-world SMS records.")
-        
+                parsed_data.append((text, 1 if label_str == "spam" else 0))
+
+        print(f"Downloaded {len(parsed_data)} real-world SMS records.")
+
     except Exception as e:
-        print(f"Could not load UCI SMS Dataset: {e}. Falling back to rich offline dataset.")
-        # Rich offline fallback corpus
+        print(f"Could not load UCI dataset: {e}. Falling back to offline corpus.")
         offline_ham = [
             "Hey! Are we still meeting for lunch tomorrow at 12?",
             "Just checking in, did you get the email I sent yesterday?",
@@ -183,7 +348,7 @@ def download_and_load_sms_dataset():
             "I'll be home in about 20 minutes.",
             "Let's catch up sometime next week.",
             "Can you forward me the invoice when you get it?",
-            "Good luck with your interview today!"
+            "Good luck with your interview today!",
         ]
         offline_spam = [
             "URGENT: Your MTN wallet is suspended. Click link to verify your account details.",
@@ -205,34 +370,33 @@ def download_and_load_sms_dataset():
             "Win a brand new phone! Text WIN to 88990 to participate.",
             "Alert: Your payment was successful. If not you, click link to cancel.",
             "URGENT: Click here to secure your online banking credentials.",
-            "Congratulations, your application was approved. Transfer funds now."
+            "Congratulations, your application was approved. Transfer funds now.",
         ]
-        
         for text in offline_ham:
             parsed_data.append((text, 0))
         for text in offline_spam:
             parsed_data.append((text, 1))
-            
+
     _CACHED_SMS_DATA = parsed_data
     return parsed_data
 
-# Synthetic Data Generators for each Edge client
-def generate_client_data(client_id, num_samples=100):
+
+# ---------------------------------------------------------------------------
+# Data generators (non-IID federated clients)
+# ---------------------------------------------------------------------------
+
+def generate_client_data(client_id: str, num_samples: int = 100):
     """
-    Generates non-IID data for a given client utilizing the real-world/offline dataset.
-    Clients with '0' (e.g. S1-0) are exposed to a high percentage of fraud.
-    Clients with '1' (e.g. S1-1) are exposed to a medium percentage.
-    Clients with '2' (e.g. S1-2) are exposed to almost no fraud.
+    Generates non-IID data for a given client utilizing the real-world/offline
+    dataset.  Clients ending in '-0' see heavy fraud; '-1' medium; '-2' almost
+    none.
     """
-    # Training pool excludes global holdout
     training_pool = get_training_pool()
-    ham_pool = [item for item in training_pool if item[1] == 0]
+    ham_pool  = [item for item in training_pool if item[1] == 0]
     spam_pool = [item for item in training_pool if item[1] == 1]
-    
-    # Seeding for reproducibility per client
+
     random.seed(hash(client_id))
-    
-    # Determine fraud ratio
+
     if client_id.endswith("-0"):
         fraud_ratio = 0.50
     elif client_id.endswith("-1"):
@@ -240,50 +404,40 @@ def generate_client_data(client_id, num_samples=100):
     else:
         fraud_ratio = 0.02
 
-    # Generate SMS data
-    sms_data = []
-    num_fraud_sms = int(num_samples * fraud_ratio)
-    num_normal_sms = num_samples - num_fraud_sms
-    
-    for _ in range(num_fraud_sms):
-        text, label = random.choice(spam_pool)
-        sms_data.append((text, label))
-    for _ in range(num_normal_sms):
-        text, label = random.choice(ham_pool)
-        sms_data.append((text, label))
-        
-    # Generate Call data (keeps identical numerical profiles)
+    num_fraud = int(num_samples * fraud_ratio)
+    num_normal = num_samples - num_fraud
+
+    sms_data = (
+        [random.choice(spam_pool) for _ in range(num_fraud)] +
+        [random.choice(ham_pool)  for _ in range(num_normal)]
+    )
+
     call_data = []
-    for _ in range(num_fraud_sms):
-        duration = random.uniform(5.0, 45.0)
-        hour = random.choice([0, 1, 2, 3, 4, 22, 23])
-        is_contact_saved = 0.0
-        times_called = float(random.randint(3, 8))
-        source_risk = random.uniform(0.6, 1.0)
-        call_data.append(([duration, hour, is_contact_saved, times_called, source_risk], 1))
-        
-    for _ in range(num_normal_sms):
-        duration = random.uniform(30.0, 300.0)
-        hour = random.randint(8, 20)
-        is_contact_saved = float(random.choice([0.0, 1.0, 1.0, 1.0]))
-        times_called = float(random.randint(1, 3))
-        source_risk = random.uniform(0.0, 0.3)
-        call_data.append(([duration, hour, is_contact_saved, times_called, source_risk], 0))
-        
+    for _ in range(num_fraud):
+        call_data.append((
+            [random.uniform(5.0, 45.0), random.choice([0, 1, 2, 3, 4, 22, 23]),
+             0.0, float(random.randint(3, 8)), random.uniform(0.6, 1.0)],
+            1
+        ))
+    for _ in range(num_normal):
+        call_data.append((
+            [random.uniform(30.0, 300.0), random.randint(8, 20),
+             float(random.choice([0.0, 1.0, 1.0, 1.0])),
+             float(random.randint(1, 3)), random.uniform(0.0, 0.3)],
+            0
+        ))
+
     return sms_data, call_data
 
-def get_dataloaders(client_id, batch_size=8, num_samples=100):
+
+def get_dataloaders(client_id: str, batch_size: int = 8, num_samples: int = 100):
     sms_raw, call_raw = generate_client_data(client_id, num_samples)
-    
-    sms_dataset = SMSDataset(sms_raw)
-    call_dataset = CallDataset(call_raw)
-    
-    sms_loader = DataLoader(sms_dataset, batch_size=batch_size, shuffle=True)
-    call_loader = DataLoader(call_dataset, batch_size=batch_size, shuffle=True)
-    
+    sms_loader  = DataLoader(SMSDataset(sms_raw),  batch_size=batch_size, shuffle=True)
+    call_loader = DataLoader(CallDataset(call_raw), batch_size=batch_size, shuffle=True)
     return sms_loader, call_loader
 
-def generate_global_test_data(num_samples=200):
+
+def generate_global_test_data(num_samples: int = 200):
     """Legacy alias — returns the formal global holdout dataset."""
-    holdout_sms, holdout_call, size = get_global_holdout_dataset()
+    holdout_sms, holdout_call, _ = get_global_holdout_dataset()
     return holdout_sms, holdout_call

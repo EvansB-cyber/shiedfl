@@ -9,6 +9,7 @@ from global_layer.global_server import GlobalServer
 from provider_layer.provider_server import ProviderServer
 from edge_layer.edge_device import EdgeDevice
 from utils.ml_tracking import start_run, log_params, end_run
+import utils.tracking_db as tracking_db
 
 
 def run_simulation(num_rounds=5, epochs_per_round=1, fl_algorithm="fedprox"):
@@ -72,6 +73,30 @@ def run_simulation(num_rounds=5, epochs_per_round=1, fl_algorithm="fedprox"):
         metrics = global_server.log_metrics(round_id=round_idx)
         print(f"  >> Round {round_idx} - SMS: {metrics['sms_accuracy']*100:.2f}%, "
               f"Holdout SMS: {metrics['holdout_sms_accuracy']*100:.2f}%")
+
+        # ── Escrow pipeline smoke-test (Step 4) ──────────────────────────────
+        # Fire receive_message() on the highest-risk device (S1-0) once per
+        # round so suspicious_messages and tier_escalations are populated,
+        # the tracking_db → MLflow path can be verified (Step 5), and the
+        # FL loop is confirmed to be intercepting real fraud signals.
+        fraud_sms = (
+            "URGENT: Your MTN MoMo wallet is suspended. "
+            "Send your PIN and OTP to unblock your account now."
+        )
+        intercept = devices["S1-0"].receive_message(
+            sender_phone="+233200000000",
+            message_text=fraud_sms,
+            amount=500.0,
+            provider_id="S1",
+            model_round_id=round_idx,
+            is_ground_truth_spam=True,
+        )
+        verdict  = intercept["escrow"]["action"]
+        risk_str = f"{intercept['total_risk_score']:.3f}"
+        db_ok    = "✓ persisted" if intercept["persisted"] else "✗ db-write failed"
+        esc_str  = "escalated" if intercept["escalated"] else "not escalated"
+        print(f"  [Escrow] verdict={verdict} risk={risk_str} {db_ok} {esc_str}")
+        # ───────────────────────────────────────────────────────────────
 
         g_sms, g_call = global_server.get_global_weights()
         for dev in devices.values():

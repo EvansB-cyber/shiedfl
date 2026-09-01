@@ -8,10 +8,15 @@ from .message_db import MessageDatabase
 import os
 import sys
 import time
+import uuid
 import tracemalloc
 import random
+from datetime import datetime, timezone
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.crypto import encrypt_weights, decrypt_weights
+from utils.escrow_agent import auto_resolve_escrow
+import utils.tracking_db as tracking_db
 
 class EdgeDevice:
     """
@@ -337,4 +342,322 @@ class EdgeDevice:
             "sms_risk_score": round(sms_risk, 3),
             "amount_risk_score": round(amount_risk, 3),
             "total_risk_score": round(total_risk, 3)
+        }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # STEP 4a — Pure Inbound Message Path (no transfer attached)
+    #
+    # receive_inbound() is independent of any outgoing transfer.
+    # It answers the question: "An SMS arrived from this number — is the
+    # *sender* a threat, regardless of whether money moved?"
+    #
+    # Execution path:
+    #   frozen tokenizer (tokenize_message)
+    #   → SMSFraudCNN inference
+    #   → threshold decision (INBOUND_FLAG_THRESHOLD from tracking_db)
+    #   → tracking_db.log_inbound_message()
+    #   → trg_inbound_update_registry fires (SQLite trigger)
+    #       → phone_number_registry UPSERT for FLAGGED_SENDER rows only
+    #
+    # DESIGN DECISION (not a formality):
+    #   A high-risk inbound SMS (sms_risk >= 0.75) flags the sender in
+    #   phone_number_registry even with ZERO transfer activity.
+    #
+    #   Why: The phone number is the persistent attack vector. Phishers send
+    #   bulk SMS to probe victims before any transfer is attempted. If
+    #   detection requires a transfer, the registry stays blind to a number
+    #   that has sent hundreds of phishing SMS across the network. Once a
+    #   number is in WATCH state, any subsequent call to get_phone_reputation()
+    #   — which runs before ML scoring in assess_transfer_risk() — catches it
+    #   before the CNN even runs.
+    #
+    #   Threshold 0.75 (not 0.5): inbound events have no amount/contact
+    #   corroboration. A single CNN score without amount context is noisier.
+    #   False positives here affect ALL providers' reputation ledger, so the
+    #   bar is set higher than the transfer path.
+    # ════════════════════════════════════════════════════════════════════════
+
+    def receive_inbound(
+        self,
+        sender_phone: str,
+        message_text: str,
+        provider_id: str,
+        timestamp: str = None,
+        model_round_id: int = None,
+        is_ground_truth_spam: bool = None,
+        flag_threshold: float = None,
+    ) -> dict:
+        """
+        Pure inbound SMS intercept — scores the sender, not a transfer receiver.
+
+        Independent of receive_message() (which requires an amount and a
+        transfer receiver).  Call this whenever an SMS arrives and there is
+        no associated MoMo transfer to evaluate.
+
+        Pipeline:
+          1. tokenize_message() — frozen vocab, deterministic.
+          2. SMSFraudCNN inference — probability of fraud class.
+          3. Contact DB lookup — is sender already in the local contacts list?
+          4. tracking_db.log_inbound_message() — writes inbound_messages row.
+             trg_inbound_update_registry fires automatically for FLAGGED_SENDER.
+          5. local message_db.add_message() — on-device audit trail.
+
+        Args:
+            sender_phone:        MSISDN of the message sender.
+            message_text:        Raw SMS body (hashed before leaving device).
+            provider_id:        Provider this device belongs to.
+            timestamp:           ISO-8601 UTC string; defaults to now.
+            model_round_id:     Current FL round for traceability.
+            is_ground_truth_spam: Ground-truth label (simulation only).
+            flag_threshold:      Override INBOUND_FLAG_THRESHOLD if needed.
+
+        Returns:
+            {
+              "device_id":        str,
+              "sender_phone":     str,
+              "sms_risk_score":   float,     # CNN output
+              "contact_known":    bool,       # sender in local contacts?
+              "contact_trusted":  bool,       # is_trusted flag from contacts DB
+              "inbound_action":   str,        # 'FLAGGED_SENDER' or 'LOGGED_ONLY'
+              "inbound_id":       str,        # uuid4 hex
+              "persisted":        bool,
+              "phone_reputation": dict|None,  # current registry entry after write
+              "timestamp":        str,
+            }
+        """
+        from tracking_db import INBOUND_FLAG_THRESHOLD
+        threshold = flag_threshold if flag_threshold is not None else INBOUND_FLAG_THRESHOLD
+        ts = timestamp or datetime.now(timezone.utc).isoformat()
+
+        # ── 1. Frozen tokenizer + CNN ────────────────────────────────────────
+        self.sms_model.eval()
+        tokens        = tokenize_message(message_text)
+        tokens_tensor = torch.tensor([tokens], dtype=torch.long)
+        with torch.no_grad():
+            logits    = self.sms_model(tokens_tensor)
+            probs     = torch.softmax(logits, dim=1)
+            sms_risk  = round(probs[0, 1].item(), 4)   # P(fraud)
+
+        # ── 2. Contact DB: is this sender already known? ─────────────────────
+        contact       = self.contact_db.get_contact_by_phone(sender_phone)
+        contact_known   = contact is not None
+        contact_trusted = bool(contact and contact.get("is_trusted"))
+
+        # ── 3. Persist to shared tracking.db ────────────────────────────────
+        inbound_id     = uuid.uuid4().hex
+        persisted      = False
+        inbound_action = "LOGGED_ONLY"
+        try:
+            tracking_db.ensure_device(
+                device_id=self.device_id,
+                provider_id=provider_id,
+                stakeholder_type=self.stakeholder_type,
+            )
+            inbound_action = tracking_db.log_inbound_message(
+                inbound_id=inbound_id,
+                device_id=self.device_id,
+                provider_id=provider_id,
+                sender_phone=sender_phone,
+                message_text=message_text,
+                sms_risk_score=sms_risk,
+                received_at=ts,
+                model_round_id=model_round_id,
+                is_ground_truth_spam=is_ground_truth_spam,
+                flag_threshold=threshold,
+            )
+            persisted = True
+        except Exception as db_err:
+            print(f"[EdgeDevice:{self.device_id}] inbound tracking write failed: {db_err}")
+
+        # ── 4. Local on-device audit trail ───────────────────────────────────
+        self.message_db.add_message(
+            sender_phone=sender_phone,
+            message_text=message_text,
+            timestamp=ts,
+            is_spam=(inbound_action == "FLAGGED_SENDER"),
+        )
+
+        # ── 5. Read back the reputation entry so the caller can inspect it ───
+        phone_rep = None
+        if persisted:
+            try:
+                phone_rep = tracking_db.get_phone_reputation(sender_phone)
+            except Exception:
+                pass
+
+        return {
+            "device_id":       self.device_id,
+            "sender_phone":    sender_phone,
+            "sms_risk_score":  sms_risk,
+            "contact_known":   contact_known,
+            "contact_trusted": contact_trusted,
+            "inbound_action":  inbound_action,
+            "inbound_id":      inbound_id,
+            "persisted":       persisted,
+            "phone_reputation": phone_rep,
+            "timestamp":       ts,
+        }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # STEP 4b — Transfer-attached Escrow Pipeline (receive_message)
+    #
+    # receive_message() is the real-time intercept path.  One call:
+    #   1. Scores the inbound SMS (assess_transfer_risk).
+    #   2. Upserts the device record in tracking.db (ensure_device).
+    #   3. Generates a collision-proof message_id (uuid4).
+    #   4. Runs the escrow agent (heuristic or LLM) to get AUTO_APPROVE /
+    #      AUTO_BLOCK / MANUAL_REVIEW.
+    #   5. Writes a row to suspicious_messages (log_suspicious_message).
+    #   6. If the verdict escalates beyond the edge tier, writes a row to
+    #      tier_escalations (log_tier_escalation).
+    #   7. Persists the message to the local message_db for audit history.
+    #   8. Returns a single combined dict so the API / simulation / Flower
+    #      client can inspect or forward without knowing any internals.
+    #
+    # Nothing above this point in EdgeDevice changes — this method is a
+    # pure addition that wraps assess_transfer_risk() and the tracking
+    # layer together.
+    # ════════════════════════════════════════════════════════════════════════
+
+    def receive_message(
+        self,
+        sender_phone: str,
+        message_text: str,
+        amount: float,
+        provider_id: str,
+        model_round_id: int = None,
+        use_llm_escrow: bool = False,
+        is_ground_truth_spam: bool = None,
+    ) -> dict:
+        """
+        Real-time inbound SMS intercept — the core safety feature of the edge tier.
+
+        Calling this method is all that is required to:
+          - Assess fraud risk locally (no data leaves the device for scoring).
+          - Auto-resolve the transfer via the escrow agent.
+          - Persist the event to the shared tracking database.
+          - Escalate to the provider tier if human review is needed.
+
+        Args:
+            sender_phone:        Sender's MSISDN (e.g. "+233200000000").
+            message_text:        Raw SMS body — hashed before leaving this device.
+            amount:              Transfer amount in GHS.
+            provider_id:        The provider this device belongs to (e.g. "S1").
+            model_round_id:     Current FL round number for traceability, or None.
+            use_llm_escrow:     Forward to LLM agent if True; heuristic if False.
+            is_ground_truth_spam: Ground-truth label for offline evaluation runs.
+
+        Returns:
+            A dict merging risk scores, escrow decision, tracking IDs and
+            database persistence status::
+
+                {
+                  # From assess_transfer_risk()
+                  "device_id":           str,
+                  "receiver_phone":      str,
+                  "amount":              float,
+                  "message_text":        str,
+                  "contact_risk_score":  float,
+                  "sms_risk_score":      float,
+                  "amount_risk_score":   float,
+                  "total_risk_score":    float,
+
+                  # Escrow agent output
+                  "escrow": {
+                    "action":     "AUTO_APPROVE" | "AUTO_BLOCK" | "MANUAL_REVIEW",
+                    "confidence": float,
+                    "reason":     str,
+                    "agent":      "heuristic" | "llm",
+                  },
+
+                  # Tracking
+                  "message_id":    str,   # uuid4 hex
+                  "detected_tier": str,   # always "EDGE" from this method
+                  "persisted":     bool,  # False if tracking.db write failed
+                  "escalated":     bool,  # True when tier_escalations row written
+                  "timestamp":     str,   # ISO-8601 UTC
+                }
+        """
+        # ── 1. Local risk scoring ────────────────────────────────────────────
+        risk_report = self.assess_transfer_risk(
+            receiver_phone=sender_phone,
+            amount=amount,
+            message_text=message_text,
+        )
+
+        # ── 2. Escrow agent decision ─────────────────────────────────────────
+        escrow_result = auto_resolve_escrow(
+            risk_report=risk_report,
+            amount=amount,
+            message=message_text,
+            use_llm=use_llm_escrow,
+        )
+
+        action  = escrow_result.get("action", "MANUAL_REVIEW")
+        verdict = action  # stored verbatim in suspicious_messages.verdict
+
+        # ── 3. Generate collision-proof message ID ───────────────────────────
+        message_id   = uuid.uuid4().hex
+        detected_tier = "EDGE"
+        timestamp     = datetime.now(timezone.utc).isoformat()
+
+        # ── 4. Persist to shared tracking.db ────────────────────────────────
+        persisted = False
+        escalated = False
+        try:
+            tracking_db.ensure_device(
+                device_id=self.device_id,
+                provider_id=provider_id,
+                stakeholder_type=self.stakeholder_type,
+            )
+            tracking_db.log_suspicious_message(
+                message_id=message_id,
+                device_id=self.device_id,
+                provider_id=provider_id,
+                receiver_phone=sender_phone,
+                message_text=message_text,   # hashed inside log_suspicious_message
+                amount=amount,
+                risk_report=risk_report,
+                verdict=verdict,
+                detected_tier=detected_tier,
+                model_round_id=model_round_id,
+                is_ground_truth_spam=is_ground_truth_spam,
+            )
+            persisted = True
+
+            # ── 5. Tier escalation record ────────────────────────────────────
+            # MANUAL_REVIEW → provider escrow queue.
+            # AUTO_BLOCK    → provider notified for network-wide blacklist.
+            if action in ("MANUAL_REVIEW", "AUTO_BLOCK"):
+                to_tier = "PROVIDER" if action == "MANUAL_REVIEW" else "GLOBAL"
+                tracking_db.log_tier_escalation(
+                    message_id=message_id,
+                    from_tier=detected_tier,
+                    to_tier=to_tier,
+                    reason=escrow_result.get("reason", action),
+                )
+                escalated = True
+
+        except Exception as db_err:
+            # Tracking failure must NOT block the escrow decision reaching the
+            # caller — the risk verdict is still returned even if DB is down.
+            print(f"[EdgeDevice:{self.device_id}] tracking_db write failed: {db_err}")
+
+        # ── 6. Persist to local message_db (audit trail on-device) ───────────
+        is_spam_local = action != "AUTO_APPROVE"
+        self.message_db.add_message(
+            sender_phone=sender_phone,
+            message_text=message_text,
+            timestamp=timestamp,
+            is_spam=is_spam_local,
+        )
+
+        return {
+            **risk_report,
+            "escrow":        escrow_result,
+            "message_id":    message_id,
+            "detected_tier": detected_tier,
+            "persisted":     persisted,
+            "escalated":     escalated,
+            "timestamp":     timestamp,
         }

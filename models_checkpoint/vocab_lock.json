@@ -1,0 +1,17 @@
+{
+  "vocab_version": "1.1.0",
+  "vocab_size": 126,
+  "vocab_checksum": "f28590d40bc4215d9804f705f7631c7018f3f5499d016dfe951493453cb69370",
+  "trained_rounds": 5,
+  "sms_checkpoint": "C:\\Users\\Appau Robert Atsu\\.gemini\\antigravity\\scratch\\project\\models_checkpoint\\global_sms_model.pth",
+  "call_checkpoint": "C:\\Users\\Appau Robert Atsu\\.gemini\\antigravity\\scratch\\project\\models_checkpoint\\global_call_model.pth",
+  "final_metrics": {
+    "round": 5,
+    "sms_accuracy": 0.9048,
+    "call_accuracy": 0.9964,
+    "holdout_sms_accuracy": 0.9048,
+    "holdout_call_accuracy": 0.9964,
+    "holdout_size": 2228,
+    "server_strategy": "fedavg"
+  }
+}
