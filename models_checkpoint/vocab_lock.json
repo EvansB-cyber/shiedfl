@@ -7,10 +7,10 @@
   "call_checkpoint": "C:\\Users\\Appau Robert Atsu\\.gemini\\antigravity\\scratch\\project\\models_checkpoint\\global_call_model.pth",
   "final_metrics": {
     "round": 5,
-    "sms_accuracy": 0.9048,
-    "call_accuracy": 0.9964,
-    "holdout_sms_accuracy": 0.9048,
-    "holdout_call_accuracy": 0.9964,
+    "sms_accuracy": 0.8842,
+    "call_accuracy": 0.9982,
+    "holdout_sms_accuracy": 0.8842,
+    "holdout_call_accuracy": 0.9982,
     "holdout_size": 2228,
     "server_strategy": "fedavg"
   }
