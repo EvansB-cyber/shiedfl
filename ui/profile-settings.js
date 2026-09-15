@@ -452,10 +452,58 @@ function renderAuditLog() {
 // ------------------------------------------------------------
 const SENSITIVITY_LABELS = { 1: "Very Lenient", 2: "Lenient", 3: "Balanced", 4: "Strict", 5: "Very Strict" };
 
+// ── Risk Escrow Threshold helpers ─────────────────────────────
+// Called directly from index.html via oninput= and onchange=
+// so they must be global (not module-scoped).
+
+/**
+ * Updates the live numeric display and colour as the thumb moves.
+ * Green (safe) → Amber (caution) → Red (aggressive) across 0.10–0.95.
+ */
+function onThresholdSliderInput() {
+  const slider = document.getElementById("risk-threshold");
+  const valEl  = document.getElementById("risk-threshold-val");
+  if (!slider || !valEl) return;
+
+  const v = parseFloat(slider.value);
+  valEl.textContent = v.toFixed(2);
+
+  // Colour: green below 0.50, amber 0.50–0.75, red above 0.75
+  let colour;
+  if (v < 0.50)      colour = "#22c55e"; // green
+  else if (v < 0.75) colour = "#f59e0b"; // amber
+  else               colour = "#ef4444"; // red
+
+  valEl.style.color        = colour;
+  slider.style.accentColor = colour;
+
+  // Mirror into state so Save Changes writes the right value
+  if (typeof state !== "undefined") {
+    state.system = state.system || {};
+    state.system.riskEscrowThreshold = v;
+  }
+}
+
+/**
+ * Called on mouseup / touchend (onchange=) — persists to localStorage.
+ */
+function saveThreshold() {
+  if (typeof persistLocal === "function") persistLocal();
+}
+// ─────────────────────────────────────────────────────────────
+
 function initSystemSection() {
-  const sensSlider = document.getElementById("ps-sensitivity");
-  const sensValue = document.getElementById("ps-sensitivity-value");
+  const sensSlider      = document.getElementById("ps-sensitivity");
+  const sensValue       = document.getElementById("ps-sensitivity-value");
   const retentionSelect = document.getElementById("ps-data-retention");
+  const riskSlider      = document.getElementById("risk-threshold");
+
+  // Restore persisted risk-escrow threshold (default 0.65)
+  if (riskSlider) {
+    const saved = (state.system && state.system.riskEscrowThreshold) ? state.system.riskEscrowThreshold : 0.65;
+    riskSlider.value = saved;
+    onThresholdSliderInput();   // paint colour + value immediately on page load
+  }
 
   sensSlider.value = state.system.sensitivity;
   sensValue.textContent = SENSITIVITY_LABELS[state.system.sensitivity];
@@ -468,7 +516,6 @@ function initSystemSection() {
   retentionSelect.addEventListener("change", () => { state.system.dataRetention = retentionSelect.value; });
 
   // Aggregation strategy is read-only, fetched from backend in a real deployment.
-  // TODO: replace with a fetch() to your FL config endpoint.
   document.getElementById("ps-aggregation-strategy").textContent = "Trimmed Mean";
 }
 
