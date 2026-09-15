@@ -1,5 +1,40 @@
+# Virtual environment
 .venv/
+venv/
+env/
+
+# Python cache
 __pycache__/
 *.pyc
-*.db
+*.pyo
+*.pyd
+
+# Secrets / local config
 .env
+
+# Runtime databases (Render uses /data disk)
+*.db
+*.db-bak
+*.db.bak
+smishing_data/
+
+# Model checkpoints (large binaries — regenerated at runtime)
+models_checkpoint/*.pth
+
+# Zip archives
+*.zip
+
+# Backup files
+*.bak
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# MLflow run artifacts (generated at runtime)
+mlruns/
+
+# Blackbox
+.blackboxignore

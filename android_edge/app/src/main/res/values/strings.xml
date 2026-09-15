@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Merge these into your existing strings.xml -->
+
+    <!-- Profile & Settings -->
+    <string name="title_profile_settings">Profile &amp; Settings</string>
+    <string name="section_profile">Profile</string>
+    <string name="section_alerts">Alerts</string>
+    <string name="section_escrow">Escrow</string>
+    <string name="section_privacy">Privacy &amp; Federated Learning</string>
+    <string name="section_display">Display</string>
+    <string name="hint_display_name">Display name</string>
+    <string name="hint_phone_number">Phone number</string>
+    <string name="hint_notes_optional">Notes (optional)</string>
+    <string name="label_notifications_enabled">Enable notifications</string>
+    <string name="label_alert_medium_risk">Alert on medium-risk messages</string>
+    <string name="label_escrow_threshold">Escrow risk threshold</string>
+    <string name="label_escrow_threshold_value">Escrow risk threshold: %1$d%%</string>
+    <string name="label_escrow_hold_minutes">Escrow hold duration</string>
+    <string name="label_escrow_hold_minutes_value">Escrow hold duration: %1$d min</string>
+    <string name="label_fl_opt_in">Contribute to federated learning</string>
+    <string name="desc_fl_opt_in">Only anonymized feature vectors and labels are shared \u2014 never message content or contacts.</string>
+    <string name="label_auto_learn_contacts">Auto-learn trusted contacts over time</string>
+    <string name="label_dark_mode">Dark mode</string>
+    <string name="action_manage_contacts">Manage Contacts</string>
+
+    <!-- Manage Contacts -->
+    <string name="title_manage_contacts">Manage Contacts</string>
+    <string name="hint_search_contacts">Search contacts</string>
+    <string name="empty_contacts_title">No contacts yet</string>
+    <string name="empty_contacts_body">Add trusted senders so their messages are scored with that context in mind.</string>
+    <string name="action_add_contact">Add contact</string>
+    <string name="action_edit_contact">Edit contact</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_undo">Undo</string>
+    <string name="label_trusted">Trusted</string>
+    <string name="label_trusted_sender">Trusted sender</string>
+    <string name="dialog_delete_contact_title">Delete contact?</string>
+    <string name="dialog_delete_contact_body">Remove %1$s from your trusted contacts?</string>
+    <string name="snackbar_contact_deleted">Contact deleted</string>
+    <string name="error_name_phone_required">Name and phone number are required</string>
+
+    <!-- Transfer Portal -->
+    <string name="title_transfer_portal">Transfer Portal</string>
+    <string name="hint_sender_device">Sender device</string>
+    <string name="hint_receiver_phone">Receiver phone</string>
+    <string name="hint_amount">Amount</string>
+    <string name="hint_message">Message (optional)</string>
+    <string name="action_send_transfer">Send Transfer</string>
+    <string name="label_transfer_status">Status</string>
+    <string name="status_approved">Approved</string>
+    <string name="status_held">Held in Escrow</string>
+    <string name="status_released">Released</string>
+    <string name="status_blocked">Blocked</string>
+    <string name="toast_transfer_sent">Transfer submitted</string>
+    <string name="toast_transfer_failed">Transfer failed</string>
+    <string name="dialog_confirm_transfer_title">Confirm transfer</string>
+    <string name="dialog_confirm_transfer_body">Send GH₵%1$.2f to %2$s?</string>
+
+    <!-- Escrow Center -->
+    <string name="title_escrow_center">Escrow Center</string>
+    <string name="label_escrow_queue">Escrow queue</string>
+    <string name="label_decision_by">Decision by</string>
+    <string name="label_reason">Reason</string>
+    <string name="action_release">Release</string>
+    <string name="action_block">Block</string>
+    <string name="confirm_release_title">Release transaction?</string>
+    <string name="confirm_block_title">Block transaction?</string>
+    <string name="confirm_action_body">Are you sure you want to %1$s this transfer (%2$s)?</string>
+    <string name="snackbar_escrow_released">Escrow released</string>
+    <string name="snackbar_escrow_blocked">Escrow blocked</string>
+    <string name="empty_escrow_title">No items in escrow</string>
+    <string name="empty_escrow_body">There are no transfers currently awaiting manual review.</string>
+
+    <!-- Federated Learning Controller -->
+    <string name="title_federated_controller">Federated Learning</string>
+    <string name="label_rounds_completed">Rounds completed: %1$d</string>
+    <string name="label_sms_accuracy">SMS model accuracy</string>
+    <string name="label_call_accuracy">Call model accuracy</string>
+    <string name="action_run_round">Run round</string>
+    <string name="action_start_training">Start training</string>
+    <string name="action_stop_training">Stop training</string>
+    <string name="label_secure_aggregation">Secure aggregation</string>
+    <string name="label_byzantine_detection">Byzantine detection</string>
+    <string name="label_dp_enabled">Differential privacy</string>
+    <string name="desc_dp_enabled">Noise multiplier: %1$.2f — clip norm: %2$.2f</string>
+    <string name="label_server_strategy">Server optimizer</string>
+    <string name="action_update_strategy">Update strategy</string>
+
+    <!-- Simulation -->
+    <string name="title_simulation">Live Simulation</string>
+    <string name="action_start_simulation">Start simulation</string>
+    <string name="action_stop_simulation">Stop simulation</string>
+    <string name="label_simulation_status">Simulation: %1$s</string>
+    <string name="label_simulation_rate">Message rate (per device)</string>
+    <string name="desc_simulation">Generates synthetic transfers and spam to evaluate escrow and FL performance.</string>
+
+    <!-- Reports & Metrics -->
+    <string name="action_export_report">Export report</string>
+    <string name="title_reports">Reports &amp; Audits</string>
+    <string name="label_false_positive_rate">False positive rate</string>
+    <string name="label_holdout_size">Holdout size</string>
+    <string name="label_baseline_rf">Baseline RF</string>
+    <string name="label_baseline_xgb">Baseline XGBoost</string>
+
+    <!-- Onboarding / Help -->
+    <string name="title_onboarding">Welcome to ShieldFL</string>
+    <string name="onboarding_line1">Protect users from suspicious mobile-money scams while improving models with privacy-preserving learning.</string>
+    <string name="onboarding_cta">Get started</string>
+
+    <!-- Errors & Validation -->
+    <string name="error_invalid_phone">Invalid phone number</string>
+    <string name="error_amount_positive">Amount must be greater than zero</string>
+    <string name="error_network">Network error. Try again later.</string>
+    <string name="error_admin_required">Admin privileges required</string>
+    <string name="error_duplicate_contact">Contact already exists</string>
+    <string name="error_transfer_not_found">Transfer not found</string>
+
+    <!-- Notifications -->
+    <string name="notif_escrow_held">Transfer %1$s held in escrow (risk %2$.0f%%)</string>
+    <string name="notif_escrow_released">Transfer %1$s released from escrow</string>
+    <string name="notif_escrow_blocked">Transfer %1$s blocked for fraud</string>
+    <string name="notif_model_updated">Global model updated (round %1$d)</string>
+
+    <!-- Buttons / Actions -->
+    <string name="action_ok">OK</string>
+    <string name="action_close">Close</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_update">Update</string>
+    <string name="action_view_logs">View logs</string>
+
+    <!-- Permissions & Security -->
+    <string name="prompt_request_permissions">This app needs permission to read SMS and contacts for local risk scoring. Message content is never shared.</string>
+    <string name="action_grant_permissions">Grant permissions</string>
+
+    <!-- Misc -->
+    <string name="label_loading">Loading…</string>
+    <string name="label_search">Search</string>
+    <string name="label_refresh">Refresh</string>
+    <string name="label_total">Total</string>
+    <string name="label_count">Count</string>
+
+</resources>

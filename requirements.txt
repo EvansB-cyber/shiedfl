@@ -1,4 +1,4 @@
-﻿fastapi
+fastapi
 uvicorn
 pydantic
 PyJWT
@@ -12,5 +12,9 @@ numpy
 networkx
 sympy
 cryptography
-   pyotp
-   qrcode[pil]
+pyotp
+qrcode[pil]
+# --- ML experiment tracking ---
+mlflow
+# --- Federated Learning framework ---
+flwr[simulation]>=1.8.0
