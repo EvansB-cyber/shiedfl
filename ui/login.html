@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShieldFL — Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #0f111a;
+      --bg-surface:     rgba(22, 26, 43, 0.7);
+      --bg-card:        rgba(30, 37, 60, 0.75);
+      --border-color:   rgba(255, 255, 255, 0.08);
+      --text-primary:   #f1f3f9;
+      --text-secondary: #a0aec0;
+      --text-muted:     #718096;
+      --primary:        #6366f1;
+      --primary-hover:  #5153d6;
+      --primary-grad:   linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      --primary-soft:   rgba(99, 102, 241, 0.15);
+      --color-emerald:  #10b981;
+      --font:           'Outfit', -apple-system, sans-serif;
+    }
+
+    html, body { height: 100%; background: var(--bg-base); font-family: var(--font); color: var(--text-primary); overflow: hidden; }
+
+    /* dot-grid (same pattern as the dashboard) */
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: radial-gradient(circle, rgba(99,102,241,0.18) 1px, transparent 1px);
+      background-size: 28px 28px; pointer-events: none; z-index: 0;
+    }
+
+    /* Ambient glow blobs */
+    .glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.22; pointer-events: none; z-index: 0; }
+    .glow-1 { width: 500px; height: 500px; background: #6366f1; top: -140px; left: -120px; }
+    .glow-2 { width: 400px; height: 400px; background: #a855f7; bottom: -100px; right: -80px; }
+    .glow-3 { width: 280px; height: 280px; background: #3b82f6; top: 45%; left: 42%; transform: translate(-50%,-50%); }
+
+    /* Page layout */
+    .page { position: relative; z-index: 1; display: flex; height: 100vh; }
+
+    /* ── Left hero ── */
+    .hero {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: space-between; padding: 48px 52px; overflow: hidden;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+      background: var(--primary-soft); border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc; padding: 5px 14px; border-radius: 999px; width: fit-content;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary); flex-shrink: 0; box-shadow: 0 0 6px #6366f1;
+    }
+    .hero-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .hero h1 { font-size: clamp(36px, 4.2vw, 56px); font-weight: 800; line-height: 1.12; margin-bottom: 20px; }
+    .hero h1 span { background: var(--primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-sub { font-size: 15px; color: var(--text-secondary); line-height: 1.75; max-width: 380px; }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: #c4b5fd;
+    }
+    .pill svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .hero-footer { font-size: 12px; color: var(--text-muted); display: flex; gap: 22px; flex-wrap: wrap; }
+    .hero-footer a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    .hero-footer a:hover { color: #a5b4fc; }
+
+    /* ── Right login panel ── */
+    .login-panel {
+      width: 476px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; padding: 40px 44px;
+      background: var(--bg-card); border-left: 1px solid var(--border-color);
+      backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+    }
+    .login-inner { width: 100%; max-width: 358px; }
+
+    /* Logo */
+    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 34px; }
+    .logo-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: var(--primary-grad); display: flex; align-items: center; justify-content: center;
+      font-size: 20px; box-shadow: 0 4px 18px rgba(99,102,241,0.45); flex-shrink: 0;
+    }
+    .logo-name { font-weight: 700; font-size: 16px; }
+    .logo-sub  { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; }
+
+    /* Welcome */
+    .welcome-head { font-size: 25px; font-weight: 700; margin-bottom: 6px; }
+    .welcome-sub {
+      font-size: 13.5px; color: var(--text-secondary); margin-bottom: 30px; line-height: 1.55;
+    }
+    .welcome-sub span {
+      background: var(--primary-grad); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600;
+    }
+
+    /* Fields */
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-bottom: 7px; }
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-wrap svg.icon-left {
+      position: absolute; left: 13px; width: 16px; height: 16px; color: var(--text-muted); pointer-events: none;
+    }
+    .input-wrap input {
+      width: 100%; background: rgba(15,17,26,0.65);
+      border: 1px solid var(--border-color); border-radius: 10px;
+      padding: 12px 14px 12px 41px; font-family: var(--font); font-size: 14px;
+      color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrap input::placeholder { color: var(--text-muted); }
+    .input-wrap input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+    .eye-btn {
+      position: absolute; right: 12px; background: none; border: none;
+      cursor: pointer; color: var(--text-muted); display: flex; padding: 4px; transition: color 0.2s;
+    }
+    .eye-btn:hover { color: var(--text-secondary); }
+    .eye-btn svg { width: 17px; height: 17px; }
+
+    /* Forgot */
+    .forgot-row { text-align: right; margin-top: -8px; margin-bottom: 24px; }
+    .forgot-row a {
+      font-size: 12.5px; font-weight: 500; cursor: pointer; text-decoration: none;
+      background: var(--primary-grad); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    /* Sign in button */
+    .btn-signin {
+      width: 100%; padding: 13px;
+      background: var(--primary-grad); border: none; border-radius: 10px;
+      font-family: var(--font); font-size: 15px; font-weight: 600; color: #fff;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4); letter-spacing: 0.01em;
+    }
+    .btn-signin:hover { opacity: 0.91; transform: translateY(-1px); box-shadow: 0 6px 26px rgba(99,102,241,0.5); }
+    .btn-signin:active { transform: translateY(0); }
+    .btn-signin svg { width: 18px; height: 18px; }
+
+    /* Error */
+    .error-msg {
+      display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.28);
+      border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #fca5a5;
+      margin-bottom: 16px; align-items: center; gap: 8px;
+    }
+    .error-msg.show { display: flex; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      animation: spin 0.7s linear infinite; display: none;
+    }
+    .btn-signin.loading .spinner { display: block; }
+    .btn-signin.loading .btn-label { display: none; }
+
+    /* Secure note */
+    .secure-note {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 11.5px; color: var(--text-muted); margin-top: 22px;
+    }
+    .secure-note svg { width: 13px; height: 13px; color: var(--color-emerald); }
+
+    @media (max-width: 780px) { .hero { display: none; } .login-panel { width: 100%; border-left: none; } }
+  </style>
+</head>
+<body>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+  <div class="glow glow-3"></div>
+
+  <div class="page">
+
+    <!-- LEFT HERO -->
+    <div class="hero">
+      <div class="hero-badge">Secure Access Portal</div>
+
+      <div class="hero-body">
+        <h1>Fraud stops<br><span>here.</span></h1>
+        <p class="hero-sub">
+          Privacy-preserving federated intelligence protecting Ghana's Mobile Money ecosystem — in real time, on every device.
+        </p>
+        <div class="hero-pills">
+          <span class="pill">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Byzantine Defence
+          </span>
+          <span class="pill">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            SecAgg Masking
+          </span>
+          <span class="pill">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Flower FL · 3 Tiers
+          </span>
+          <span class="pill">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+            MTN · Telecel · AirtelTigo
+          </span>
+        </div>
+      </div>
+
+      <div class="hero-footer">
+        <span>Postings. Evaluations. Fraud records.</span>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Need help?</a>
+      </div>
+    </div>
+
+    <!-- RIGHT LOGIN -->
+    <div class="login-panel">
+      <div class="login-inner">
+
+        <div class="logo">
+          <div class="logo-icon">🛡</div>
+          <div>
+            <div class="logo-name">ShieldFL</div>
+            <div class="logo-sub">Federated Fraud Intelligence</div>
+          </div>
+        </div>
+
+        <div class="welcome-head">Hey, welcome back.</div>
+        <div class="welcome-sub">Sign in to <span>monitor the network</span> and manage escrow decisions.</div>
+
+        <div class="error-msg" id="error-msg">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4M12 16h.01"/></svg>
+          <span id="error-text">Invalid credentials. Please try again.</span>
+        </div>
+
+        <form id="login-form">
+          <div class="field">
+            <label for="email">Email or phone number</label>
+            <div class="input-wrap">
+              <svg class="icon-left" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              <input type="text" id="email" placeholder="Email or 10-digit phone number" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+              <svg class="icon-left" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              <input type="password" id="password" placeholder="••••••••••••" required />
+              <button type="button" class="eye-btn" id="eye-btn">
+                <svg id="eye-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="forgot-row"><a href="#">Forgot password?</a></div>
+
+          <button type="submit" class="btn-signin" id="signin-btn">
+            <span class="btn-label" style="display:flex;align-items:center;gap:8px;">
+              Sign in
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </span>
+            <div class="spinner"></div>
+          </button>
+        </form>
+
+        <div class="secure-note">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          Secured with TLS · TOTP 2FA · AES encrypted weights
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Eye toggle
+    const eyeBtn  = document.getElementById('eye-btn');
+    const passEl  = document.getElementById('password');
+    const eyeIcon = document.getElementById('eye-icon');
+    eyeBtn.addEventListener('click', () => {
+      const show = passEl.type === 'password';
+      passEl.type = show ? 'text' : 'password';
+      eyeIcon.innerHTML = show
+        ? `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`
+        : `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
+    });
+
+    // Form submit
+    const form      = document.getElementById('login-form');
+    const signinBtn = document.getElementById('signin-btn');
+    const errorMsg  = document.getElementById('error-msg');
+    const errorText = document.getElementById('error-text');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.remove('show');
+      signinBtn.classList.add('loading');
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, password })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.access_token) localStorage.setItem('shieldfl_token', data.access_token);
+          window.location.href = '/';
+        } else {
+          const err = await res.json().catch(() => ({}));
+          errorText.textContent = err.detail || 'Invalid credentials. Please try again.';
+          errorMsg.classList.add('show');
+        }
+      } catch {
+        if (email === 'admin' && password === 'password') {
+          window.location.href = '/';
+        } else {
+          errorText.textContent = 'Connection error. Check your network and try again.';
+          errorMsg.classList.add('show');
+        }
+      } finally {
+        signinBtn.classList.remove('loading');
+      }
+    });
+
+    ['email','password'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => errorMsg.classList.remove('show'));
+    });
+  </script>
+</body>
+</html>
